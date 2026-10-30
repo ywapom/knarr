@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "theseus-mcp"
+version = "0.2.0"
+description = "An MCP server that lets an AI agent work through a website toward a goal with guarded browser tools: writes blocked, origin pinned, destructive clicks refused."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Ron Hermansen" }]
+requires-python = ">=3.12"
+keywords = ["mcp", "browser", "playwright", "agent", "claude", "testing"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+]
+dependencies = [
+    # Every range has an upper bound, and requirements.lock holds the exact versions the
+    # tests ran on. Playwright's private Page._sync is used by the pump (see mcp/session.py).
+    "mcp>=1.13,<2",
+    "playwright>=1.48,<2",
+    "pyyaml>=6.0,<7",
+    "websockets>=12,<16",  # borrowing a login from the user's Chrome over DevTools
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+# [project.urls] - add Homepage / Repository / Issues once the public repository exists.
+
+[project.scripts]
+theseus-mcp = "theseus.mcp.server:main"
+theseus-doctor = "theseus.doctor:main"
+
+[tool.setuptools.packages.find]
+include = ["theseus*"]

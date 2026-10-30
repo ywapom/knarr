@@ -1,0 +1,16 @@
+{
+  "name": "theseus",
+  "version": "0.2.0",
+  "description": "Drive a real browser toward a goal with guarded tools: read the page as numbered controls, click, fill, navigate, and pass only when the page shows a success criterion fixed at the start. Works on any site, including ones you're logged in to.",
+  "author": {
+    "name": "Ron Hermansen"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "browser",
+    "playwright",
+    "exploration",
+    "mcp",
+    "testing"
+  ]
+}
