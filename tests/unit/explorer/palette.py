@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List
 
-from theseus.explorer.explorer_tools import ExplorerContext, build_explorer_functions
+from knarr.explorer.explorer_tools import ExplorerContext, build_explorer_functions
 
 
 class PlainTool:

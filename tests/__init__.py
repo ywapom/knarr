@@ -1,1 +1,1 @@
-"""Tests for the theseus package."""
+"""Tests for the knarr package."""

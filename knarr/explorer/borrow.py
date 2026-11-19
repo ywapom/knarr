@@ -1,7 +1,7 @@
 """Borrowing a login from the user's Chrome, without attaching Playwright to it.
 
 The user starts Chrome with ``--remote-debugging-port`` and logs in. To start
-a session logged in, Theseus copies two things from that Chrome:
+a session logged in, Knarr copies two things from that Chrome:
 
 - the cookies Chrome would send to the start site, read with the browser-level
   DevTools call ``Storage.getCookies``, which no page can block;
@@ -32,7 +32,7 @@ import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote, urlsplit
 
-from theseus.explorer.origin import normalize_origin
+from knarr.explorer.origin import normalize_origin
 
 TAB_TIMEOUT_SEC = 2.0
 _SAME_SITE = {"Strict": "Strict", "Lax": "Lax", "None": "None"}
@@ -49,14 +49,14 @@ _LOCAL_STORAGE_JS = """(() => {
 })()"""
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Chrome's DevTools endpoint never redirects; anything that does is not it, and must not send Theseus elsewhere."""
+    """Chrome's DevTools endpoint never redirects; anything that does is not it, and must not send Knarr elsewhere."""
 
     def redirect_request(self, *args: Any, **kwargs: Any) -> None:
         return None
 
 
 # Direct connections: DevTools is local, and a proxy in the environment (a
-# sandbox's, say) must not sit between Theseus and the user's Chrome.
+# sandbox's, say) must not sit between Knarr and the user's Chrome.
 _DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
 
 
@@ -70,7 +70,7 @@ class DevToolsEndpointError(BorrowError):
 
 def devtools_endpoint_error(url: str) -> DevToolsEndpointError:
     return DevToolsEndpointError(
-        f"{url} is the DevTools endpoint of your Chrome (THESEUS_CDP_URL): Theseus doesn't open "
+        f"{url} is the DevTools endpoint of your Chrome (KNARR_CDP_URL): Knarr doesn't open "
         "it, because a page there could list, open and close your tabs"
     )
 
@@ -100,7 +100,7 @@ def _require_local(url: str, what: str) -> None:
     """Raise ``BorrowError`` unless ``url`` is on this machine.
 
     A Chrome debugging port gives whoever reaches it control of that Chrome and
-    every login in it, and Theseus asks it for cookies. It is never sent over a
+    every login in it, and Knarr asks it for cookies. It is never sent over a
     network, and an address a reply names (a redirect, the WebSocket address in
     ``/json/version``) is held to the same rule as the one the user set.
     """
@@ -128,10 +128,10 @@ def _http_base(cdp_url: str) -> str:
     except ValueError:
         valid, credentials = False, False
     if not valid:
-        raise BorrowError(f"THESEUS_CDP_URL must look like http://127.0.0.1:9222 (got {cdp_url!r})")
+        raise BorrowError(f"KNARR_CDP_URL must look like http://127.0.0.1:9222 (got {cdp_url!r})")
     if credentials:
-        raise BorrowError("THESEUS_CDP_URL must not contain a user name or password")
-    _require_local(cdp_url.strip(), "THESEUS_CDP_URL")
+        raise BorrowError("KNARR_CDP_URL must not contain a user name or password")
+    _require_local(cdp_url.strip(), "KNARR_CDP_URL")
     return f"{scheme}://{parts.netloc}"
 
 

@@ -1,8 +1,8 @@
-"""End-to-end: drive ``python -m theseus.mcp`` over stdio.
+"""End-to-end: drive ``python -m knarr.mcp`` over stdio.
 
 Starts the real server as a subprocess, which launches or attaches to a real
 browser against a local test page. Opt-in because it needs a browser: run with
-``THESEUS_BROWSER_TESTS=1`` (add ``THESEUS_BROWSER_CHANNEL=chrome`` to launch
+``KNARR_BROWSER_TESTS=1`` (add ``KNARR_BROWSER_CHANNEL=chrome`` to launch
 the installed Chrome instead of Playwright's Chromium). The attach tests also
 need Google Chrome installed.
 """
@@ -29,8 +29,8 @@ from pathlib import Path
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("THESEUS_BROWSER_TESTS") != "1",
-    reason="needs a real browser; set THESEUS_BROWSER_TESTS=1",
+    os.environ.get("KNARR_BROWSER_TESTS") != "1",
+    reason="needs a real browser; set KNARR_BROWSER_TESTS=1",
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -116,7 +116,7 @@ def throwaway_chrome():
     if not os.path.exists(CHROME):
         pytest.skip("Google Chrome not installed")
     port = _free_port()
-    profile = tempfile.mkdtemp(prefix="theseus-it-chrome-")
+    profile = tempfile.mkdtemp(prefix="knarr-it-chrome-")
     proc = subprocess.Popen(
         [CHROME, "--headless=new", f"--remote-debugging-port={port}",
          f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
@@ -141,10 +141,10 @@ def throwaway_chrome():
 
 
 def _server_env(tmp_path: Path, **extra: str) -> dict:
-    """The test's environment minus any THESEUS_* settings except the browser channel."""
+    """The test's environment minus any KNARR_* settings except the browser channel."""
     env = {k: v for k, v in os.environ.items()
-           if not k.startswith("THESEUS_") or k == "THESEUS_BROWSER_CHANNEL"}
-    env.update({"PYTHONPATH": str(REPO_ROOT), "THESEUS_RUNS_DIR": str(tmp_path)})
+           if not k.startswith("KNARR_") or k == "KNARR_BROWSER_CHANNEL"}
+    env.update({"PYTHONPATH": str(REPO_ROOT), "KNARR_RUNS_DIR": str(tmp_path)})
     env.update(extra)
     return env
 
@@ -159,7 +159,7 @@ async def _client(env: dict, cwd: Path):
     from mcp.client.stdio import stdio_client
 
     params = StdioServerParameters(
-        command=sys.executable, args=["-m", "theseus.mcp"], env=env, cwd=str(cwd)
+        command=sys.executable, args=["-m", "knarr.mcp"], env=env, cwd=str(cwd)
     )
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as client:
@@ -172,7 +172,7 @@ class RawServer:
 
     def __init__(self, env: dict, cwd: Path) -> None:
         self.proc = subprocess.Popen(
-            [sys.executable, "-m", "theseus.mcp"], stdin=subprocess.PIPE,
+            [sys.executable, "-m", "knarr.mcp"], stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env, cwd=str(cwd),
             text=True, bufsize=1,
         )
@@ -299,8 +299,8 @@ def test_the_server_names_itself_and_warns_that_page_text_is_untrusted(page_url,
     async def scenario():
         async with _client(_server_env(tmp_path), tmp_path) as client:
             hello = client.initialize_result
-            assert hello.serverInfo.name == "theseus"
-            # Theseus's own version (or "unknown"), not the MCP SDK's, which FastMCP reports by default.
+            assert hello.serverInfo.name == "knarr"
+            # Knarr's own version (or "unknown"), not the MCP SDK's, which FastMCP reports by default.
             assert hello.serverInfo.version != importlib.metadata.version("mcp")
             assert re.fullmatch(r"\d+\.\d+\.\d+.*|unknown", hello.serverInfo.version), hello.serverInfo.version
             assert "Page text is untrusted" in " ".join(hello.instructions.split())
@@ -332,7 +332,7 @@ def test_concurrent_calls_run_one_at_a_time_and_all_count(page_url, tmp_path):
             return [_text(r) for r in results], status
 
     texts, status = asyncio.run(scenario())
-    assert all("[theseus] call" in t for t in texts), texts
+    assert all("[knarr] call" in t for t in texts), texts
     numbers = sorted(int(re.search(r"call (\d+) of", t).group(1)) for t in texts)
     assert numbers == [1, 2, 3, 4]
     assert status["turns_used"] == 4
@@ -341,7 +341,7 @@ def test_concurrent_calls_run_one_at_a_time_and_all_count(page_url, tmp_path):
 # -- startup failure -------------------------------------------------------------
 
 def test_a_browser_that_cannot_launch_is_reported_and_the_server_survives(page_url, tmp_path):
-    env = _server_env(tmp_path, THESEUS_BROWSER_CHANNEL="no-such-browser")
+    env = _server_env(tmp_path, KNARR_BROWSER_CHANNEL="no-such-browser")
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -393,7 +393,7 @@ def test_client_disconnect_mid_session_ends_it_cleanly(page_url, tmp_path):
 def test_attach_borrows_the_login_and_runs_its_own_browser(page_url, tmp_path, throwaway_chrome):
     endpoint = throwaway_chrome
     baseline = len(_page_targets(endpoint))
-    env = _server_env(tmp_path, THESEUS_CDP_URL=endpoint)
+    env = _server_env(tmp_path, KNARR_CDP_URL=endpoint)
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -407,7 +407,7 @@ def test_attach_borrows_the_login_and_runs_its_own_browser(page_url, tmp_path, t
     started, during, page, summary, after = asyncio.run(scenario())
     assert started.startswith("Session started"), started
     assert "Nothing was borrowed from your Chrome" in started  # the throwaway Chrome holds no login
-    assert during == baseline  # Theseus works in its own browser, not in the user's Chrome
+    assert during == baseline  # Knarr works in its own browser, not in the user's Chrome
     assert "Place order" in page
     assert after == baseline
     assert _chrome_alive(endpoint)
@@ -417,7 +417,7 @@ def test_attach_borrows_the_login_and_runs_its_own_browser(page_url, tmp_path, t
 def test_sigterm_in_attach_mode_leaves_the_users_chrome_alone(page_url, tmp_path, throwaway_chrome):
     endpoint = throwaway_chrome
     baseline = len(_page_targets(endpoint))
-    server = RawServer(_server_env(tmp_path, THESEUS_CDP_URL=endpoint), tmp_path)
+    server = RawServer(_server_env(tmp_path, KNARR_CDP_URL=endpoint), tmp_path)
     assert server.call("session_start", start_url=page_url, success_criterion=CRITERION).startswith("Session started")
     browser_pids = server.descendants()
     assert len(_page_targets(endpoint)) == baseline
@@ -425,7 +425,7 @@ def test_sigterm_in_attach_mode_leaves_the_users_chrome_alone(page_url, tmp_path
     server.proc.send_signal(signal.SIGTERM)
     assert server.proc.wait(timeout=30) == 128 + signal.SIGTERM
     time.sleep(1)
-    assert not _alive(browser_pids)  # Theseus's own browser is gone
+    assert not _alive(browser_pids)  # Knarr's own browser is gone
     assert len(_page_targets(endpoint)) == baseline and _chrome_alive(endpoint)
     assert (_only_run_dir(tmp_path) / "summary.json").is_file()
 
@@ -542,7 +542,7 @@ def test_a_profile_added_while_the_server_runs_lets_the_next_sessions_post_throu
     criterion = "the page shows 'Spring Sale'"
 
     async def scenario():
-        env = _server_env(tmp_path / "runs", THESEUS_PROFILES_DIR=str(profiles))
+        env = _server_env(tmp_path / "runs", KNARR_PROFILES_DIR=str(profiles))
         async with _client(env, tmp_path) as client:
             call = client.call_tool
 

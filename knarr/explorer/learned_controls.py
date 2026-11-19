@@ -1,4 +1,4 @@
-"""Durable record of controls a human taught Theseus.
+"""Durable record of controls a human taught Knarr.
 
 Every answered ``ask_human`` pause produces a :class:`LearnedControl` — the
 question, the operator's words, and the selector ladder observed from their
@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from theseus.explorer.human_demo import DemoEvent, SelectorRung, best_rung
+from knarr.explorer.human_demo import DemoEvent, SelectorRung, best_rung
 
 
 # Cumulative store, relative to the ``runs/`` root the CLI already uses for
@@ -48,7 +48,7 @@ MAX_PROMPT_CONTROLS = 12
 
 @dataclass(frozen=True)
 class LearnedControl:
-    """One control a human pointed Theseus at.
+    """One control a human pointed Knarr at.
 
     ``intent`` is what the agent was trying to reach, taken from its own
     question — that is what a later run matches on, since the selector is

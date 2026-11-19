@@ -2,7 +2,7 @@
 
 Each test starts the real server over stdio against a throwaway Chrome (headless,
 temporary profile, debug port) and a local site on two cookie jars: the app on
-127.0.0.1 and its sign-in provider on localhost. Opt-in: THESEUS_BROWSER_TESTS=1.
+127.0.0.1 and its sign-in provider on localhost. Opt-in: KNARR_BROWSER_TESTS=1.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ async def _open_and_look(env, tmp_path, url):
 def test_an_sso_redirect_chain_is_followed_with_the_users_login(site, tmp_path, throwaway_chrome):
     """app -> script redirect -> sign-in provider -> back to the app, signed in."""
     _user_cookies(throwaway_chrome, [{"name": "idp", "value": "1", "domain": "localhost", "path": "/"}])
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome)
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome)
 
     started, page, status, _ = asyncio.run(_open_and_look(env, tmp_path, site.a + "/sso"))
 
@@ -66,7 +66,7 @@ def test_an_sso_redirect_chain_is_followed_with_the_users_login(site, tmp_path, 
 
 
 def test_a_user_who_is_not_signed_in_lands_on_the_sign_in_page_without_a_lockout(site, tmp_path, throwaway_chrome):
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome)
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome)
 
     started, page, status, after = asyncio.run(_open_and_look(env, tmp_path, site.a + "/sso"))
 
@@ -91,7 +91,7 @@ def test_local_storage_items_named_like_storage_methods_are_all_copied(site, tmp
     with sync_playwright() as pw:
         browser = pw.chromium.connect_over_cdp(throwaway_chrome)
         browser.contexts[0].new_page().goto(site.a + "/login")  # 8 items, among them "key", "length", "getItem"
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome)
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome)
 
     started, page, _, _ = asyncio.run(_open_and_look(env, tmp_path, site.a + "/"))
 
@@ -105,7 +105,7 @@ def test_local_storage_items_named_like_storage_methods_are_all_copied(site, tmp
 def test_the_devtools_endpoint_is_never_opened_whatever_its_spelling(tmp_path, throwaway_chrome, host):
     port = throwaway_chrome.rsplit(":", 1)[1]
     baseline = len(_page_targets(throwaway_chrome))
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome)
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome)
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -122,7 +122,7 @@ def test_the_devtools_endpoint_is_never_opened_whatever_its_spelling(tmp_path, t
 def test_borrowing_ignores_a_proxy_in_the_environment(page_url, tmp_path, throwaway_chrome):
     dead = "http://127.0.0.1:1"  # nothing listens there: any use of it fails
     proxies = {name: dead for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")}
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome, **proxies)
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome, **proxies)
 
     started, page, _, _ = asyncio.run(_open_and_look(env, tmp_path, page_url))
 
@@ -137,8 +137,8 @@ def _descendants_with(server, pattern):
 
 
 @pytest.mark.parametrize("no_sandbox", [False, True], ids=["sandboxed", "no_sandbox_opt_out"])
-def test_theseus_browser_runs_with_chromiums_sandbox_unless_told_not_to(page_url, tmp_path, no_sandbox):
-    extra = {"THESEUS_NO_SANDBOX": "1"} if no_sandbox else {}
+def test_knarr_browser_runs_with_chromiums_sandbox_unless_told_not_to(page_url, tmp_path, no_sandbox):
+    extra = {"KNARR_NO_SANDBOX": "1"} if no_sandbox else {}
     server = RawServer(_server_env(tmp_path, **extra), tmp_path)
     try:
         assert server.call("session_start", start_url=page_url, success_criterion=CRITERION).startswith("Session started")
@@ -156,7 +156,7 @@ def test_theseus_browser_runs_with_chromiums_sandbox_unless_told_not_to(page_url
 def test_a_late_redirect_to_a_sign_in_provider_is_followed_with_the_users_login(site, tmp_path, throwaway_chrome):
     """setTimeout(redirect, 1.8 s): after the start's wait, so the first calls find the page on the app."""
     _user_cookies(throwaway_chrome, [{"name": "idp", "value": "1", "domain": "localhost", "path": "/"}])
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome)
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome)
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -178,7 +178,7 @@ def test_a_late_redirect_to_a_sign_in_provider_is_followed_with_the_users_login(
 
 
 def test_a_site_that_keeps_sending_the_page_to_sign_in_ends_the_run_as_login_required(site, tmp_path, throwaway_chrome):
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome)  # nobody is signed in anywhere
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome)  # nobody is signed in anywhere
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -203,7 +203,7 @@ def test_a_site_that_keeps_sending_the_page_to_sign_in_ends_the_run_as_login_req
 
 # -- Chrome's debug port is out of reach of every page ------------------------------------------------------------------------------
 
-def test_no_page_in_theseus_browser_can_reach_the_users_debug_port(site, tmp_path, throwaway_chrome):
+def test_no_page_in_knarr_browser_can_reach_the_users_debug_port(site, tmp_path, throwaway_chrome):
     import urllib.request
 
     port = throwaway_chrome.rsplit(":", 1)[1]
@@ -235,13 +235,13 @@ def test_no_page_in_theseus_browser_can_reach_the_users_debug_port(site, tmp_pat
             summary = json.loads(_text(await client.call_tool("session_end", {})))
             return started + "\n" + note, summary
 
-    asyncio.run(run("/attack-control", THESEUS_ALLOW_WRITES="1"))
+    asyncio.run(run("/attack-control", KNARR_ALLOW_WRITES="1"))
     assert control not in open_tabs(), "the control should show that a page can close the tab"
 
     victim = new_tab()
     site.extra_pages["/attack"] = attack(victim)
-    note, summary = asyncio.run(run("/attack", THESEUS_CDP_URL=throwaway_chrome))
-    assert victim in open_tabs(), "a page in Theseus's browser closed a tab of the user's Chrome"
+    note, summary = asyncio.run(run("/attack", KNARR_CDP_URL=throwaway_chrome))
+    assert victim in open_tabs(), "a page in Knarr's browser closed a tab of the user's Chrome"
     assert "DevTools endpoint" in note, note
     assert any("DevTools endpoint" in gap for gap in summary["extra"]["write_block_gaps"])
     assert any(c["outcome"] == "refused" for c in _captured_in(Path(summary["run_dir"])))
@@ -271,7 +271,7 @@ def test_borrowed_local_storage_replaces_what_the_anonymous_load_wrote_and_is_ap
         tab = browser.contexts[0].new_page()
         tab.goto(site.b + "/idp-store")
         tab.evaluate("localStorage.setItem('persist:root', 'SECRET')")
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome)
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome)
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -308,7 +308,7 @@ def test_a_redirect_announced_by_a_refresh_or_held_back_by_a_slow_load_is_waited
     """Each of these used to be missed at the start and counted as a boundary violation afterwards."""
     _timing_pages(site)
     _user_cookies(throwaway_chrome, [{"name": "idp", "value": "1", "domain": "localhost", "path": "/"}])
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome)
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome)
 
     started, page, status, after = asyncio.run(_open_and_look(env, tmp_path, site.a + path))
 
@@ -320,12 +320,12 @@ def test_a_redirect_announced_by_a_refresh_or_held_back_by_a_slow_load_is_waited
 
 
 def test_a_chrome_that_is_not_on_this_machine_is_refused_before_anything_is_asked_of_it(site, tmp_path):
-    env = _server_env(tmp_path, THESEUS_CDP_URL="http://chrome-box.example.com:9222")
+    env = _server_env(tmp_path, KNARR_CDP_URL="http://chrome-box.example.com:9222")
 
     async def run():
         async with _client(env, tmp_path) as client:
             return _text(await client.call_tool("session_start", {"start_url": site.a + "/", "success_criterion": CRITERION}))
 
     refused = asyncio.run(run())
-    assert "THESEUS_CDP_URL must be on this machine" in refused, refused
+    assert "KNARR_CDP_URL must be on this machine" in refused, refused
     assert not refused.startswith("Session started")

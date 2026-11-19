@@ -1,13 +1,13 @@
 {
-  "name": "theseus-mcp",
-  "description": "Theseus: guarded browser exploration for Claude Code.",
+  "name": "knarr",
+  "description": "Knarr: guarded browser exploration for Claude Code.",
   "owner": {
     "name": "Ron Hermansen"
   },
   "plugins": [
     {
-      "name": "theseus",
-      "description": "Drive a real browser toward a goal with guarded tools and prove the result. Runs the theseus-mcp package from PyPI with uvx, so it needs uv (see the README).",
+      "name": "knarr",
+      "description": "Drive a real browser toward a goal with guarded tools and prove the result. Runs the knarr package from PyPI with uvx, so it needs uv (see the README).",
       "source": "./plugin"
     }
   ]

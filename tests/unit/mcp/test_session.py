@@ -1,4 +1,4 @@
-"""Unit tests for theseus/mcp/session.py — one exploration driven by a client."""
+"""Unit tests for knarr/mcp/session.py — one exploration driven by a client."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ import stat
 import pytest
 from unittest.mock import MagicMock
 
-from theseus.explorer.caps import RunCaps
-from theseus.mcp.session import (
+from knarr.explorer.caps import RunCaps
+from knarr.mcp.session import (
     IDLE_TIMEOUT_ENV,
     MAX_TURNS_ENV,
     MAX_WALL_CLOCK_ENV,
@@ -131,7 +131,7 @@ def test_each_call_is_a_turn_and_carries_a_status_line(tmp_path):
     s.start()
     out = s.call("click", target="Place order")
     assert out.startswith("clicked")
-    assert re.search(r"\n\n\[theseus\] call 1 of 10, \d+ s of browser time left$", out), out
+    assert re.search(r"\n\n\[knarr\] call 1 of 10, \d+ s of browser time left$", out), out
     s.call("note", text="looks fine")
     assert s.status()["turns_used"] == 2
 
@@ -207,7 +207,7 @@ def test_ending_early_records_the_client_ended_it_and_is_idempotent(tmp_path):
 
 def test_summary_counts_calls_even_when_a_tool_raises(tmp_path):
     page = make_page()
-    page._theseus_click = lambda target: (_ for _ in ()).throw(RuntimeError("page crashed"))
+    page._knarr_click = lambda target: (_ for _ in ()).throw(RuntimeError("page crashed"))
     s, _ = _session(tmp_path, browser=FakeBrowser(page=page))
     s.start()
     out = s.call("click", target="Place order")
@@ -236,7 +236,7 @@ def test_a_click_that_leaves_the_origin_is_sent_back_and_counted(tmp_path):
     s.call("navigate", url="/orders")
     out = s.call("click", target="Partner site")
     assert "rejected: left_origin" in out
-    assert "returned to https://example.com/start" in out  # a page Theseus chose, not where a click landed
+    assert "returned to https://example.com/start" in out  # a page Knarr chose, not where a click landed
     assert page.url == "https://example.com/start"
     assert s.status()["boundary_violations"] == 1
 
@@ -326,7 +326,7 @@ def test_a_tool_never_runs_on_a_page_that_could_not_be_brought_back(tmp_path):
     page.url = "https://idp.example.net/login"
     out = s.call("read_page")
     assert "refused: the page is outside https://example.com and could not be brought back" in out
-    assert s.status()["turns_used"] == 0 and out.rstrip().splitlines()[-1].startswith("[theseus]")
+    assert s.status()["turns_used"] == 0 and out.rstrip().splitlines()[-1].startswith("[knarr]")
 
 
 def test_forbidden_verbs_are_refused(tmp_path):
@@ -409,12 +409,12 @@ def _writing_page(block, writes):
                            "navigation": False, "outcome": "blocked"})
         return {"success": True, "fallback_used": False, "selector": f"text={target}"}
 
-    page._theseus_click = click
+    page._knarr_click = click
     return page
 
 
 def test_blocked_writes_are_listed_in_the_result_and_the_summary(tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
     page = _writing_page(block, [("POST", "https://example.com/api/orders"),
@@ -434,7 +434,7 @@ def test_blocked_writes_are_listed_in_the_result_and_the_summary(tmp_path):
 
 
 def test_repeated_writes_are_grouped_with_counts(tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
     writes = [("POST", "https://example.com/g/collect")] * 3 + [
@@ -448,7 +448,7 @@ def test_repeated_writes_are_grouped_with_counts(tmp_path):
 
 
 def test_writes_during_the_first_load_are_reported_at_start(tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
     block._record({"method": "POST", "url": "https://example.com/g/collect",
@@ -460,7 +460,7 @@ def test_writes_during_the_first_load_are_reported_at_start(tmp_path):
 
 
 def test_allowed_writes_are_reported_and_counted_separately(tmp_path):
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     block = WriteBlock(WritePolicy(allow_patterns=("**/graphql",)))
     page = make_page()
@@ -470,11 +470,11 @@ def test_allowed_writes_are_reported_and_counted_separately(tmp_path):
                        "navigation": False, "allowed": True, "allowed_by": "**/graphql", "outcome": "sent"})
         return {"success": True}
 
-    page._theseus_click = click
+    page._knarr_click = click
     s, _ = _session(tmp_path, browser=FakeBrowser(page=page, write_block=block))
-    assert "Requests matching THESEUS_WRITE_ALLOW (**/graphql) are sent" in s.start()
+    assert "Requests matching KNARR_WRITE_ALLOW (**/graphql) are sent" in s.start()
     out = s.call("click", target="Save")
-    assert "sent 1 write(s) allowed by THESEUS_WRITE_ALLOW: POST /graphql" in out
+    assert "sent 1 write(s) allowed by KNARR_WRITE_ALLOW: POST /graphql" in out
     assert s.status()["allowed_writes"] == 1
     extra = s.end()["extra"]
     # Not a dry run any more: a write really went out.
@@ -482,7 +482,7 @@ def test_allowed_writes_are_reported_and_counted_separately(tmp_path):
 
 
 def test_write_block_gaps_are_warned_about_and_summarised(tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
     s, _ = _session(tmp_path, browser=FakeBrowser(write_block=block))
@@ -506,7 +506,7 @@ def test_new_tabs_are_reported(tmp_path):
 
 
 def test_allowed_writes_are_announced(tmp_path):
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     block = WriteBlock(WritePolicy(block=False))
     s, _ = _session(tmp_path, browser=FakeBrowser(write_block=block))
@@ -517,7 +517,7 @@ def test_allowed_writes_are_announced(tmp_path):
 
 
 def test_new_tab_note_does_not_claim_writes_are_blocked_when_they_are_not(tmp_path):
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     browser = FakeBrowser(write_block=WriteBlock(WritePolicy(block=False)))
     s, _ = _session(tmp_path, browser=browser)
@@ -560,7 +560,7 @@ def test_a_tab_opened_while_the_first_page_loaded_is_reported(tmp_path):
 
 
 def test_a_blocked_navigation_never_becomes_the_return_target(tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
     page = make_page(click_goes_to={"Log out": "https://example.com/logout",
@@ -569,7 +569,7 @@ def test_a_blocked_navigation_never_becomes_the_return_target(tmp_path):
     s.start()
     s.call("navigate", url="/orders")
     block._blocked_navigations.add("https://example.com/logout")  # the form post was faked
-    page.title.return_value = "Blocked by Theseus"                # and its blocked page is showing
+    page.title.return_value = "Blocked by Knarr"                # and its blocked page is showing
     s.call("click", target="Log out")
     out = s.call("click", target="Partner")
     assert "returned to https://example.com/start" in out
@@ -625,14 +625,14 @@ def test_a_failure_after_the_browser_opened_closes_it_instead_of_leaking_it(tmp_
 
 
 def test_the_devtools_endpoint_is_refused_as_a_start_url(tmp_path, monkeypatch):
-    monkeypatch.setenv("THESEUS_CDP_URL", "http://127.0.0.1:9222")
+    monkeypatch.setenv("KNARR_CDP_URL", "http://127.0.0.1:9222")
     with pytest.raises(SessionError, match="DevTools endpoint"):
         _session(tmp_path, start_url="http://localhost:9222/json/list")
     _session(tmp_path, start_url="http://localhost:3000/")  # another port on the same host is fine
 
 
 def test_a_browser_session_that_finds_the_devtools_endpoint_gives_a_refusal(tmp_path):
-    from theseus.explorer.borrow import devtools_endpoint_error
+    from knarr.explorer.borrow import devtools_endpoint_error
 
     def factory(config, run_dir):
         raise devtools_endpoint_error(config.start_url)
@@ -676,8 +676,8 @@ def test_a_chain_of_origins_is_listed_in_the_start_message(tmp_path):
     assert "1 cookie(s) for https://idp.example.net" in message
 
 
-def _stand_in_browser(landed, *, title="Blocked by Theseus"):
-    from theseus.explorer.write_block import WriteBlock
+def _stand_in_browser(landed, *, title="Blocked by Knarr"):
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
     block._blocked_navigations.add(landed.split("?")[0])
@@ -690,7 +690,7 @@ def test_a_blocked_sign_in_handoff_at_start_is_explained_and_never_the_return_ta
     browser, page = _stand_in_browser("https://example.com/acs")
     s, _ = _session(tmp_path, browser=browser)
     started = s.start()
-    assert "stand-in for a form post it blocked" in started and "THESEUS_WRITE_ALLOW" in started
+    assert "stand-in for a form post it blocked" in started and "KNARR_WRITE_ALLOW" in started
     assert s._home_url == "https://example.com/start"  # the start URL, not the blocked document
     out = s.call("click", target="Partner")  # the page ends up on another site
     assert "returned to https://example.com/start" in out and page.url == "https://example.com/start"
@@ -723,7 +723,7 @@ def test_text_on_the_blocked_stand_in_page_never_satisfies_the_criterion(tmp_pat
 
 def test_a_waiting_for_the_page_to_settle_still_works_on_the_stand_in_page(tmp_path):
     browser, page = _stand_in_browser("https://example.com/save")
-    page._theseus_wait_for = lambda description: {"success": True, "settled": True, "matched_at_ms": 5}
+    page._knarr_wait_for = lambda description: {"success": True, "settled": True, "matched_at_ms": 5}
     s, _ = _session(tmp_path, browser=browser)
     s.start()
     assert "page settled" in s.call("wait_for", description="until the page is quiet")
@@ -740,7 +740,7 @@ def test_the_same_url_visited_normally_later_is_graded_normally(tmp_path):
 # -- ending ----------------------------------------------------------------------------
 
 def test_writes_released_while_the_browser_closes_are_in_the_summary(tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
 
@@ -779,7 +779,7 @@ def test_a_browser_that_will_not_close_cleanly_does_not_lose_the_summary(tmp_pat
 # -- the memory guard ------------------------------------------------------------------
 
 def test_a_session_measures_its_own_memory_growth_not_the_process_lifetime_peak(tmp_path, monkeypatch):
-    from theseus.explorer import caps
+    from knarr.explorer import caps
 
     peak = {"mb": 5000}  # an earlier session left the process peak high
     monkeypatch.setattr(caps, "_default_rss_mb", lambda: peak["mb"])
@@ -799,7 +799,7 @@ def test_a_failing_pump_is_reported_in_the_result_and_the_status(tmp_path):
     s.pump_status = lambda: (3, "TargetClosedError: gone")
     out = s.call("note", text="x")
     assert "network pump failed 3 time(s) (last: TargetClosedError: gone)" in out
-    assert out.rstrip().splitlines()[-1].startswith("[theseus]")  # the status line stays last
+    assert out.rstrip().splitlines()[-1].startswith("[knarr]")  # the status line stays last
     assert "pump failed" not in s.call("note", text="y")  # reported once per new failure
     s.pump_status = lambda: (5, "TargetClosedError: gone")
     assert "failed 5 time(s)" in s.call("note", text="z")
@@ -807,16 +807,16 @@ def test_a_failing_pump_is_reported_in_the_result_and_the_status(tmp_path):
 
 
 def test_a_bad_allow_pattern_stops_the_session_with_a_clear_message(tmp_path, monkeypatch):
-    from theseus.mcp.session import default_session_cm
+    from knarr.mcp.session import default_session_cm
 
-    monkeypatch.setenv("THESEUS_WRITE_ALLOW", "**/a/**/b/**/c")
+    monkeypatch.setenv("KNARR_WRITE_ALLOW", "**/a/**/b/**/c")
     config = SessionConfig(start_url="https://example.com/", success_criterion=CRITERION)
-    with pytest.raises(ValueError, match="THESEUS_WRITE_ALLOW pattern .* more than 2 wildcards before"):
+    with pytest.raises(ValueError, match="KNARR_WRITE_ALLOW pattern .* more than 2 wildcards before"):
         default_session_cm(config, tmp_path / "run")
 
 
 def test_the_allowed_sentence_describes_the_setting_and_read_only(tmp_path):
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     block = WriteBlock(WritePolicy(block=False))
     s, _ = _session(tmp_path, browser=FakeBrowser(write_block=block))
@@ -829,7 +829,7 @@ def test_the_allowed_sentence_describes_the_setting_and_read_only(tmp_path):
 
 
 def test_what_the_page_chooses_is_capped_in_the_notes(tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
     page = make_page()
@@ -839,7 +839,7 @@ def test_what_the_page_chooses_is_capped_in_the_notes(tmp_path):
                        "resource_type": "fetch", "navigation": False})
         return {"success": True}
 
-    page._theseus_click = click
+    page._knarr_click = click
     s, _ = _session(tmp_path, browser=FakeBrowser(page=page, write_block=block))
     s.start()
     out = s.call("click", target="Go")
@@ -847,7 +847,7 @@ def test_what_the_page_chooses_is_capped_in_the_notes(tmp_path):
 
 
 def test_cancelled_and_refused_requests_are_mentioned(tmp_path):
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     block = WriteBlock(WritePolicy(allow_patterns=("**/search",)))
     page = make_page()
@@ -859,11 +859,11 @@ def test_cancelled_and_refused_requests_are_mentioned(tmp_path):
                        "resource_type": "devtools", "navigation": False})
         return {"success": True}
 
-    page._theseus_click = click
+    page._knarr_click = click
     s, _ = _session(tmp_path, browser=FakeBrowser(page=page, write_block=block))
     s.start()
     out = s.call("click", target="Go")
-    assert "1 request(s) allowed by THESEUS_WRITE_ALLOW were cancelled by the page before they were sent" in out
+    assert "1 request(s) allowed by KNARR_WRITE_ALLOW were cancelled by the page before they were sent" in out
     assert "refused 1 request(s) to your Chrome's DevTools endpoint" in out
 
 
@@ -884,7 +884,7 @@ def test_the_sessions_own_tab_is_never_reported_as_new(tmp_path):
 
 
 def test_the_default_session_blocks_writes_and_writes_a_trace_only_when_asked(tmp_path, monkeypatch):
-    from theseus.mcp import session as session_mod
+    from knarr.mcp import session as session_mod
 
     seen = {}
     monkeypatch.setattr(session_mod, "plain_session", lambda url, **kwargs: seen.update(kwargs) or "cm")
@@ -893,16 +893,16 @@ def test_the_default_session_blocks_writes_and_writes_a_trace_only_when_asked(tm
     assert seen["write_block"].active is True  # blocking is what the server does unless the user says otherwise
     assert seen["write_block"].sink_path == tmp_path / "run" / "captured_writes.jsonl"
     assert seen["trace_dir"] is None
-    monkeypatch.setenv("THESEUS_TRACE", "1")
+    monkeypatch.setenv("KNARR_TRACE", "1")
     session_mod.default_session_cm(config, tmp_path / "run")
     assert seen["trace_dir"] == tmp_path / "run"
-    monkeypatch.setenv("THESEUS_ALLOW_WRITES", "1")
+    monkeypatch.setenv("KNARR_ALLOW_WRITES", "1")
     session_mod.default_session_cm(config, tmp_path / "run")
     assert seen["write_block"].active is False
 
 
 def test_writes_are_blocked_by_default_in_the_policy():
-    from theseus.explorer.write_block import WritePolicy
+    from knarr.explorer.write_block import WritePolicy
 
     assert WritePolicy.from_env().block is True and WritePolicy().block is True
 
@@ -912,7 +912,7 @@ def test_a_departure_that_comes_back_by_itself_is_left_alone(tmp_path):
     page = make_page()
     reloaded = []
 
-    def settle():  # the chain finishes while Theseus waits
+    def settle():  # the chain finishes while Knarr waits
         page.url = "https://example.com/home"
 
     s, _ = _session(tmp_path, browser=FakeBrowser(page=page, settle=settle,
@@ -939,14 +939,14 @@ def test_a_departure_that_stays_out_after_settling_is_counted_and_followed(tmp_p
 
 
 def test_a_form_that_posts_to_another_origin_is_blocked_and_not_a_violation(tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     block = WriteBlock()
     page = make_page(click_goes_to={"Send": "https://partner.example.net/receive"})
     s, _ = _session(tmp_path, browser=FakeBrowser(page=page, write_block=block))
     s.start()
     block._blocked_navigations.add("https://partner.example.net/receive")  # the post was faked...
-    page.title.return_value = "Blocked by Theseus"                        # ...and its stand-in shows at that URL
+    page.title.return_value = "Blocked by Knarr"                        # ...and its stand-in shows at that URL
     for _ in range(4):
         out = s.call("click", target="Send")
     assert "the form posts to https://partner.example.net, outside https://example.com" in out
@@ -955,22 +955,22 @@ def test_a_form_that_posts_to_another_origin_is_blocked_and_not_a_violation(tmp_
 
 
 def test_a_new_runs_directory_and_its_parents_are_private(tmp_path):
-    from theseus.mcp.session import make_private_dirs
+    from knarr.mcp.session import make_private_dirs
 
-    run_dir = tmp_path / ".theseus" / "runs" / "20261025T000000Z_site"
+    run_dir = tmp_path / ".knarr" / "runs" / "20261025T000000Z_site"
     make_private_dirs(run_dir)
-    for directory in (tmp_path / ".theseus", tmp_path / ".theseus" / "runs", run_dir):
+    for directory in (tmp_path / ".knarr", tmp_path / ".knarr" / "runs", run_dir):
         assert directory.is_dir() and (directory.stat().st_mode & 0o077) == 0, directory
     make_private_dirs(run_dir)  # again: nothing to do, no error
 
 
 def test_a_session_start_leaves_its_runs_root_private(tmp_path):
-    s, _ = _session(tmp_path / "home" / ".theseus" / "runs")
+    s, _ = _session(tmp_path / "home" / ".knarr" / "runs")
     s.start()
     assert (s.run_dir.parent.stat().st_mode & 0o077) == 0 and (s.run_dir.stat().st_mode & 0o077) == 0
 
 
-def test_the_start_message_says_when_the_sign_in_was_longer_than_theseus_follows(tmp_path):
+def test_the_start_message_says_when_the_sign_in_was_longer_than_knarr_follows(tmp_path):
     s, _ = _session(tmp_path, browser=FakeBrowser(unfollowed=["https://s5.example.net"]))
     message = s.start()
     assert "stopped following the sign-in after 4 reloads" in message
@@ -1012,7 +1012,7 @@ def _profiles(tmp_path, monkeypatch, text=None, name="staging.yaml"):
     d.chmod(0o700)
     if text is not None:
         (d / name).write_text(textwrap.dedent(text))
-    monkeypatch.setenv("THESEUS_PROFILES_DIR", str(d))
+    monkeypatch.setenv("KNARR_PROFILES_DIR", str(d))
     return d / name
 
 
@@ -1021,7 +1021,7 @@ def _on_sandbox(tmp_path, **kwargs):
 
 
 def test_a_profile_edit_reaches_the_next_sessions_write_block_without_a_restart(tmp_path, monkeypatch):
-    from theseus.mcp import session as session_mod
+    from knarr.mcp import session as session_mod
 
     seen = {}
     monkeypatch.setattr(session_mod, "plain_session", lambda url, **kwargs: seen.update(kwargs) or "cm")
@@ -1041,17 +1041,17 @@ def test_a_profile_edit_reaches_the_next_sessions_write_block_without_a_restart(
 
 
 def test_the_profile_adds_to_the_environments_patterns(tmp_path, monkeypatch):
-    from theseus.mcp import session as session_mod
+    from knarr.mcp import session as session_mod
 
     seen = {}
     monkeypatch.setattr(session_mod, "plain_session", lambda url, **kwargs: seen.update(kwargs) or "cm")
     _profiles(tmp_path, monkeypatch, f"origins: [{SANDBOX}]\nallow: ['{SEARCH_URL}']\n")
-    monkeypatch.setenv("THESEUS_WRITE_ALLOW", "https://login.example.com/**")
+    monkeypatch.setenv("KNARR_WRITE_ALLOW", "https://login.example.com/**")
     config = SessionConfig(start_url=f"{SANDBOX}/", success_criterion=CRITERION)
     s = McpSession(config, run_dir=tmp_path / "run")
     s._session_cm_factory(config, tmp_path / "run")
     assert seen["write_block"].policy.allow_patterns == ("https://login.example.com/**", SEARCH_URL)
-    assert s._allow_source == "THESEUS_WRITE_ALLOW and the site profile"
+    assert s._allow_source == "KNARR_WRITE_ALLOW and the site profile"
 
 
 def test_a_profile_for_another_site_changes_nothing(tmp_path, monkeypatch):
@@ -1065,7 +1065,7 @@ def test_a_profile_for_another_site_changes_nothing(tmp_path, monkeypatch):
 
 
 def test_the_start_message_names_the_profile_and_where_allowed_requests_come_from(tmp_path, monkeypatch):
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     path = _profiles(tmp_path, monkeypatch, f"origins: [{SANDBOX}]\nallow: ['{SEARCH_URL}']\nforbidden_text: [Send Invoice]\n")
     block = WriteBlock(WritePolicy(allow_patterns=(SEARCH_URL,)))
@@ -1083,7 +1083,7 @@ def test_the_start_message_names_the_profile_and_where_allowed_requests_come_fro
 
 
 def test_a_live_profile_says_who_authorized_it(tmp_path, monkeypatch):
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     _profiles(tmp_path, monkeypatch, f"origins: [{SANDBOX}]\nwrites: live\nauthorized_by: ron@example.com\n")
     s, _ = _on_sandbox(tmp_path, browser=FakeBrowser(write_block=WriteBlock(WritePolicy(block=False))))
@@ -1097,16 +1097,16 @@ def test_a_live_profile_says_who_authorized_it(tmp_path, monkeypatch):
 
 
 def test_a_live_profile_cant_overrule_block_writes(tmp_path, monkeypatch):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     _profiles(tmp_path, monkeypatch, f"origins: [{SANDBOX}]\nwrites: live\nauthorized_by: ron@example.com\n")
-    monkeypatch.setenv("THESEUS_BLOCK_WRITES", "1")
+    monkeypatch.setenv("KNARR_BLOCK_WRITES", "1")
     s, _ = _on_sandbox(tmp_path)
     assert s.write_policy.block is True
     s, _ = _on_sandbox(tmp_path / "again", browser=FakeBrowser(write_block=WriteBlock(s.write_policy)))
     started = s.start()
     assert "Writes are blocked" in started
-    assert "It says writes are live, but THESEUS_BLOCK_WRITES is set, so they stay blocked." in started
+    assert "It says writes are live, but KNARR_BLOCK_WRITES is set, so they stay blocked." in started
 
 
 def test_a_profile_adds_forbidden_verbs_and_the_defaults_stay(tmp_path, monkeypatch):
@@ -1120,7 +1120,7 @@ def test_a_profile_adds_forbidden_verbs_and_the_defaults_stay(tmp_path, monkeypa
 
 
 def test_without_a_profile_the_forbidden_verbs_are_the_defaults(tmp_path):
-    from theseus.explorer.explorer_tools import DEFAULT_EXPLORE_FORBIDDEN
+    from knarr.explorer.explorer_tools import DEFAULT_EXPLORE_FORBIDDEN
 
     s, _ = _session(tmp_path)
     assert s.forbidden_verbs == tuple(DEFAULT_EXPLORE_FORBIDDEN)
@@ -1131,10 +1131,10 @@ def test_a_profiles_limits_apply_and_the_environments_win(tmp_path, monkeypatch)
     config = SessionConfig(start_url=f"{SANDBOX}/", success_criterion=CRITERION)
     s = McpSession(config, run_dir=tmp_path / "run", session_cm_factory=FakeBrowser().factory)
     assert s.caps.max_turns == 60 and s.caps.max_wall_clock_sec == 1200.0
-    monkeypatch.setenv("THESEUS_MAX_TURNS", "5")
+    monkeypatch.setenv("KNARR_MAX_TURNS", "5")
     s = McpSession(config, run_dir=tmp_path / "run2", session_cm_factory=FakeBrowser().factory)
     assert s.caps.max_turns == 5 and s.caps.max_wall_clock_sec == 1200.0
-    monkeypatch.setenv("THESEUS_MAX_WALL_CLOCK_SEC", "30")
+    monkeypatch.setenv("KNARR_MAX_WALL_CLOCK_SEC", "30")
     s = McpSession(config, run_dir=tmp_path / "run3", session_cm_factory=FakeBrowser().factory)
     assert s.caps.max_wall_clock_sec == 30.0
 
@@ -1175,19 +1175,19 @@ def test_the_session_never_takes_a_profile_name_from_the_caller():
 # -- page text is untrusted ---------------------------------------------------------
 
 def test_read_page_and_inspect_error_end_with_a_reminder_that_the_page_text_is_untrusted(tmp_path):
-    from theseus.mcp.session import UNTRUSTED_PAGE_TEXT_NOTE
+    from knarr.mcp.session import UNTRUSTED_PAGE_TEXT_NOTE
 
     s, _ = _session(tmp_path)
     s.start()
     for tool in ("read_page", "inspect_error"):
         lines = s.call(tool).splitlines()
         assert lines.count(UNTRUSTED_PAGE_TEXT_NOTE) == 1, lines
-        assert lines.index(UNTRUSTED_PAGE_TEXT_NOTE) < len(lines) - 1 and lines[-1].startswith("[theseus]")
+        assert lines.index(UNTRUSTED_PAGE_TEXT_NOTE) < len(lines) - 1 and lines[-1].startswith("[knarr]")
     assert s.call("read_page").startswith("url: ")  # the page text still comes first
 
 
 def test_other_results_carry_no_such_reminder(tmp_path):
-    from theseus.mcp.session import UNTRUSTED_PAGE_TEXT_NOTE
+    from knarr.mcp.session import UNTRUSTED_PAGE_TEXT_NOTE
 
     s, _ = _session(tmp_path)
     s.start()
@@ -1196,7 +1196,7 @@ def test_other_results_carry_no_such_reminder(tmp_path):
 
 
 def test_a_failed_read_page_has_no_page_text_and_no_reminder(tmp_path):
-    from theseus.mcp.session import UNTRUSTED_PAGE_TEXT_NOTE
+    from knarr.mcp.session import UNTRUSTED_PAGE_TEXT_NOTE
 
     s, _ = _session(tmp_path)
     s.start()
@@ -1238,7 +1238,7 @@ def test_the_trace_lines_of_the_session_carry_their_own_time(tmp_path):
 # -- limits on what a call may carry --------------------------------------------------
 
 def test_an_oversized_argument_is_refused_without_using_a_turn_or_a_strike(tmp_path):
-    from theseus.mcp.limits import MAX_FILL_VALUE_CHARS
+    from knarr.mcp.limits import MAX_FILL_VALUE_CHARS
 
     s, browser = _session(tmp_path)
     s.start()
@@ -1264,7 +1264,7 @@ def test_an_index_out_of_range_is_refused(tmp_path):
 
 
 def test_session_start_arguments_over_the_limit_are_refused_before_anything_opens(tmp_path):
-    from theseus.mcp.limits import MAX_CRITERION_CHARS, MAX_GOAL_CHARS, MAX_URL_CHARS
+    from knarr.mcp.limits import MAX_CRITERION_CHARS, MAX_GOAL_CHARS, MAX_URL_CHARS
 
     for kwargs, message in (
         ({"start_url": "https://example.com/" + "x" * MAX_URL_CHARS}, "start_url is"),

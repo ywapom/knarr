@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "knarr": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["knarr"]
+    }
+  }
+}

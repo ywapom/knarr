@@ -15,7 +15,7 @@ Policy is fixed by the session, never by later tool arguments:
 - The success criterion is fixed at start. ``assert_state`` checks the page
   against it, and every quoted phrase in it must be on the page.
 - Writes are blocked at the network level (``explorer.write_block``) unless
-  the user sets ``THESEUS_ALLOW_WRITES=1``; each result lists the writes it
+  the user sets ``KNARR_ALLOW_WRITES=1``; each result lists the writes it
   blocked, and the summary says whether any write went out (``dry_run``).
 - The user's site profile for the start URL's origin (``explorer.profiles``),
   if there is one, is read once here: it can let named requests through, make
@@ -40,15 +40,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Optional
 
-from theseus.explorer.borrow import (
+from knarr.explorer.borrow import (
     DevToolsEndpointError,
     devtools_endpoint_error,
     is_devtools_endpoint,
     login_sentence,
 )
-from theseus.explorer.caps import BudgetTracker, RunCaps, estimate_tokens, rss_growth_provider
-from theseus.explorer.files import make_private_dirs
-from theseus.explorer.explorer_tools import (
+from knarr.explorer.caps import BudgetTracker, RunCaps, estimate_tokens, rss_growth_provider
+from knarr.explorer.files import make_private_dirs
+from knarr.explorer.explorer_tools import (
     DEFAULT_EXPLORE_FORBIDDEN,
     ExplorerContext,
     ForbiddenActionGuard,
@@ -56,9 +56,9 @@ from theseus.explorer.explorer_tools import (
     URLBoundaryGuard,
     build_explorer_functions,
 )
-from theseus.explorer.origin import normalize_origin
-from theseus.explorer.profiles import SiteProfile, find_profile, problems_sentence
-from theseus.explorer.session import (
+from knarr.explorer.origin import normalize_origin
+from knarr.explorer.profiles import SiteProfile, find_profile, problems_sentence
+from knarr.explorer.session import (
     MAX_LOGIN_HOPS,
     browser_channel_from_env,
     cdp_url_from_env,
@@ -66,15 +66,15 @@ from theseus.explorer.session import (
     storage_state_from_env,
     trace_from_env,
 )
-from theseus.explorer.trace import RunSummary, SummaryWriter, TraceWriter, run_user, utc_now
-from theseus.explorer.write_block import CAPTURED_WRITES_FILE, WriteBlock, WritePolicy
-from theseus.mcp.limits import check_session_start, check_tool_arguments
+from knarr.explorer.trace import RunSummary, SummaryWriter, TraceWriter, run_user, utc_now
+from knarr.explorer.write_block import CAPTURED_WRITES_FILE, WriteBlock, WritePolicy
+from knarr.mcp.limits import check_session_start, check_tool_arguments
 
 FEATURE = "mcp"
 
-MAX_TURNS_ENV = "THESEUS_MAX_TURNS"
-MAX_WALL_CLOCK_ENV = "THESEUS_MAX_WALL_CLOCK_SEC"
-IDLE_TIMEOUT_ENV = "THESEUS_IDLE_TIMEOUT_SEC"
+MAX_TURNS_ENV = "KNARR_MAX_TURNS"
+MAX_WALL_CLOCK_ENV = "KNARR_MAX_WALL_CLOCK_SEC"
+IDLE_TIMEOUT_ENV = "KNARR_IDLE_TIMEOUT_SEC"
 DEFAULT_IDLE_TIMEOUT_SEC = 900
 
 # How long each idle pump lets the browser's event loop run (see pump()).
@@ -240,7 +240,7 @@ class McpSession:
         self._opened_tabs: list = []
         self._tabs_reported = 0
         self._main_page: Any = None
-        # Where the guard sends the page back to: a page Theseus chose to load (the start
+        # Where the guard sends the page back to: a page Knarr chose to load (the start
         # URL, or the origin's root), never one a click landed on, which might be a link
         # that changes data and would be requested again.
         self._home_url = config.start_url
@@ -362,9 +362,9 @@ class McpSession:
         self._functions = {fn.__name__: fn for fn in build_explorer_functions(self.context)}
         attached = self._login_sentence() + self._unfollowed_note()
         stand_in_note = (
-            " The page it landed on is Theseus's stand-in for a form post it blocked (a sign-in "
+            " The page it landed on is Knarr's stand-in for a form post it blocked (a sign-in "
             "handoff such as SAML sends one), so the site's own page never loaded. To let that "
-            "post through, set THESEUS_WRITE_ALLOW to its URL (or list it under allow: in this site's "
+            "post through, set KNARR_WRITE_ALLOW to its URL (or list it under allow: in this site's "
             "profile) and start again."
             if stand_in else ""
         )
@@ -386,7 +386,7 @@ class McpSession:
         )
 
     def _on_stand_in(self, url: str, page: Any) -> bool:
-        """Whether ``page`` shows Theseus's "Blocked" stand-in for a form post."""
+        """Whether ``page`` shows Knarr's "Blocked" stand-in for a form post."""
         if self.write_block is None:
             return False
         try:
@@ -410,15 +410,15 @@ class McpSession:
     def _allow_source(self) -> str:
         """Where the allow patterns in force came from, for messages."""
         if not self._profile_allow:
-            return "THESEUS_WRITE_ALLOW"
+            return "KNARR_WRITE_ALLOW"
         if len(self._profile_allow) == len(self.write_policy.allow_patterns):
             return "the site profile"
-        return "THESEUS_WRITE_ALLOW and the site profile"
+        return "KNARR_WRITE_ALLOW and the site profile"
 
     def _live_reason(self) -> str:
         if self.profile is not None and self.profile.live:
             return f"the site profile {self.profile.name!r} says writes: live, authorized by {self.profile.authorized_by}"
-        return "THESEUS_ALLOW_WRITES is set"
+        return "KNARR_ALLOW_WRITES is set"
 
     def _profile_sentence(self) -> str:
         """What the site profile did, or that profiles were ignored; empty when neither."""
@@ -427,7 +427,7 @@ class McpSession:
             parts.append(f"Site profile {self.profile.name!r} ({self.profile.path}) applies: "
                          f"{self.profile.describe_changes()}.")
             if self.profile.live and self.writes_blocked:
-                parts.append("It says writes are live, but THESEUS_BLOCK_WRITES is set, so they stay blocked.")
+                parts.append("It says writes are live, but KNARR_BLOCK_WRITES is set, so they stay blocked.")
         problems = problems_sentence(self.profile_problems)
         if problems:
             parts.append(problems)
@@ -509,7 +509,7 @@ class McpSession:
             self._stack.close()
         except Exception as exc:
             close_error = exc
-            print(f"theseus: error closing the browser session: {exc!r}", file=sys.stderr)
+            print(f"knarr: error closing the browser session: {exc!r}", file=sys.stderr)
         try:
             summary = self._build_summary(close_error)
             writer.write(summary)
@@ -611,7 +611,7 @@ class McpSession:
         if errors > self._pump_errors_reported:
             self._pump_errors_reported = errors
             notes.append(
-                f"warning: Theseus's network pump failed {errors} time(s) (last: {last_error}); "
+                f"warning: Knarr's network pump failed {errors} time(s) (last: {last_error}); "
                 "requests the page makes between your calls may wait for the next call."
             )
         shown = 0
@@ -628,7 +628,7 @@ class McpSession:
             blocked = "its writes are blocked too; " if self.writes_blocked else ""
             notes.append(
                 f"the page opened a new tab ({self._page_url(tab)[:MAX_SHOWN_URL] or 'about:blank'}). "
-                f"Theseus keeps working in its first tab; {blocked}it closes when the "
+                f"Knarr keeps working in its first tab; {blocked}it closes when the "
                 "session ends."
             )
         if hidden:
@@ -684,11 +684,11 @@ class McpSession:
         return back
 
     def _unfollowed_note(self) -> str:
-        """Say so when the sign-in was longer than Theseus follows."""
+        """Say so when the sign-in was longer than Knarr follows."""
         left = getattr(self._browser_session, "unfollowed", None)
         if not left:
             return ""
-        return (f" (Theseus stopped following the sign-in after {MAX_LOGIN_HOPS} reloads; the login of "
+        return (f" (Knarr stopped following the sign-in after {MAX_LOGIN_HOPS} reloads; the login of "
                 f"{', '.join(left)} was not borrowed)")
 
     def _enforce_origin(self, agent_acted: bool = False) -> Optional[str]:
@@ -704,7 +704,7 @@ class McpSession:
             return None
         if self._on_stand_in(url, self.context.page):
             # The agent submitted a form that posts to another origin. The post was blocked, so the
-            # page showing is Theseus's own, standing at that URL: nothing of the other site loaded.
+            # page showing is Knarr's own, standing at that URL: nothing of the other site loaded.
             back = self._return_home()
             return (f"the form posts to {normalize_origin(url) or url}, outside {self.origin}; the post was "
                     f"blocked, so nothing was sent there; {back}.")
@@ -756,7 +756,7 @@ class McpSession:
         if times >= MAX_SELF_DEPARTURES:
             self.context.signal_terminal(REASON_LOGIN_REQUIRED)
             note += (f" The site has sent the page to {where} {times} times, which usually means it needs a "
-                     "login Theseus doesn't have. Sign in there in your Chrome (THESEUS_CDP_URL) and start a "
+                     "login Knarr doesn't have. Sign in there in your Chrome (KNARR_CDP_URL) and start a "
                      "new session.")
         return note
 
@@ -797,15 +797,15 @@ class McpSession:
     def status_line(self) -> str:
         reason = self.context.terminal_reason
         if reason is not None:
-            return f"[theseus] run ended: {reason}. Call session_end for the summary."
+            return f"[knarr] run ended: {reason}. Call session_end for the summary."
         used, limit = self.budget.turns_used, self.caps.max_turns
         left = int(self.budget.remaining_wall_clock_sec())
         if self.budget.remaining_turns() <= 0 or left <= 0:
             return (
-                f"[theseus] call {used} of {limit}, {left} s of browser time left: "
+                f"[knarr] call {used} of {limit}, {left} s of browser time left: "
                 "limit reached, the next call will be refused. Call session_end."
             )
-        return f"[theseus] call {used} of {limit}, {left} s of browser time left"
+        return f"[knarr] call {used} of {limit}, {left} s of browser time left"
 
 
 def _path_of(url: str) -> str:

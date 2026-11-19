@@ -1,4 +1,4 @@
-"""Unit tests for theseus/explorer/explorer_tools.py.
+"""Unit tests for knarr/explorer/explorer_tools.py.
 
 Every tool is tested against a MagicMock page so the suite runs
 without Playwright. The URL-boundary and forbidden-action guards are
@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from theseus.explorer.explorer_tools import (
+from knarr.explorer.explorer_tools import (
     ExplorerContext,
     ForbiddenActionGuard,
     ForbiddenEntry,
@@ -22,7 +22,7 @@ from theseus.explorer.explorer_tools import (
     URLBoundaryGuard,
     _compile_boundary_pattern,
 )
-from theseus.explorer.trace import TraceWriter
+from knarr.explorer.trace import TraceWriter
 
 from tests.unit.explorer.palette import build_palette
 
@@ -43,10 +43,10 @@ def _make_page(
     page = MagicMock()
     page.url = url
     page.title.return_value = title
-    page._theseus_visible_buttons = list(buttons or [])
-    page._theseus_visible_input_labels = list(inputs or [])
-    page._theseus_visible_headings = list(headings or [])
-    page._theseus_modal_text = modal_text
+    page._knarr_visible_buttons = list(buttons or [])
+    page._knarr_visible_input_labels = list(inputs or [])
+    page._knarr_visible_headings = list(headings or [])
+    page._knarr_modal_text = modal_text
     page.goto.return_value = None
     page.screenshot.return_value = None
     return page
@@ -260,9 +260,9 @@ def test_read_page_trace_includes_extracted_state_samples(tmp_path: Path):
         inputs=["Project Name"],
         headings=["Basic"],
     )
-    page._theseus_visible_links = ["Offers"]
-    page._theseus_open_menus = ["New Project", "Project from Template"]
-    page._theseus_field_errors = [
+    page._knarr_visible_links = ["Offers"]
+    page._knarr_open_menus = ["New Project", "Project from Template"]
+    page._knarr_field_errors = [
         "Category cannot be empty",
         "Basic has validation errors",
     ]
@@ -370,7 +370,7 @@ def test_record_intent_writes_annotation_and_args(tmp_path: Path):
     _tool(tools, "record_intent").run(
         {
             "method_param": "name",
-            "value": "theseus-offer-1",
+            "value": "knarr-test-1",
             "source": "input labeled 'Offer name'",
         }
     )
@@ -496,21 +496,21 @@ def test_now_ms_is_monotonic(tmp_path: Path):
 
 # ============================================================================
 # Action tools — click / fill / submit / wait_for / assert_state / give_up.
-# Tests register ``_theseus_*`` methods on the MagicMock page so the tool
+# Tests register ``_knarr_*`` methods on the MagicMock page so the tool
 # bodies exercise their happy + sad paths without Playwright.
 # ============================================================================
 
 def _attach_clicker(page, *, success: bool = True, fallback_used: bool = False):
-    """Install a deterministic _theseus_click on the test page."""
+    """Install a deterministic _knarr_click on the test page."""
     def _click(target):
         return {"success": success, "fallback_used": fallback_used, "target": target}
-    page._theseus_click = _click
+    page._knarr_click = _click
 
 
 def _attach_filler(page, *, success: bool = True):
     def _fill(label, value):
         return {"success": success, "label": label, "value": value}
-    page._theseus_fill = _fill
+    page._knarr_fill = _fill
 
 
 def _attach_submitter(page, *, success: bool = True, verb: str = "Save"):
@@ -518,7 +518,7 @@ def _attach_submitter(page, *, success: bool = True, verb: str = "Save"):
         if success:
             return {"success": True, "verb": verb}
         return {"success": False, "error": "no submit button found"}
-    page._theseus_submit = _submit
+    page._knarr_submit = _submit
 
 
 def _attach_waiter(page, *, success: bool = True, matched_at_ms: int = 250):
@@ -528,13 +528,13 @@ def _attach_waiter(page, *, success: bool = True, matched_at_ms: int = 250):
             "matched_at_ms": matched_at_ms if success else 0,
             "error": "" if success else f"timeout waiting for {description!r}",
         }
-    page._theseus_wait_for = _wait
+    page._knarr_wait_for = _wait
 
 
 def _attach_asserter(page, *, matches: bool = True, evidence: str = "ok"):
     def _assert(description):
         return {"matches": matches, "evidence": evidence}
-    page._theseus_assert_state = _assert
+    page._knarr_assert_state = _assert
 
 
 # ----------------------------------------------------------------------------
@@ -564,7 +564,7 @@ def test_click_failure_returns_click_failed(tmp_path: Path):
     page = _make_page()
     def _broken(target):
         return {"success": False, "error": "element not found"}
-    page._theseus_click = _broken
+    page._knarr_click = _broken
     ctx = _make_context(tmp_path, page=page)
     tools = build_palette(ctx)
     result = _tool(tools, "click").run({"target": "ghost"})
@@ -612,7 +612,7 @@ def test_click_read_only_simulates(tmp_path: Path):
     def _real(target):
         real_click_called.append(target)
         return {"success": True}
-    page._theseus_click = _real
+    page._knarr_click = _real
     ctx = _make_context(tmp_path, page=page, read_only=True)
     tools = build_palette(ctx)
     result = _tool(tools, "click").run({"target": "Save offer"})
@@ -632,11 +632,11 @@ def test_fill_happy_path(tmp_path: Path):
     _attach_filler(page)
     ctx = _make_context(tmp_path, page=page)
     tools = build_palette(ctx)
-    result = _tool(tools, "fill").run({"label": "Offer name", "value": "theseus-1"})
+    result = _tool(tools, "fill").run({"label": "Offer name", "value": "knarr-1"})
     assert result.startswith("filled: Offer name")
     raw = ctx.trace.path.read_text()
     assert "Offer name" in raw
-    assert "theseus-1" not in raw  # what was typed stays out of the file (see the redaction tests below)
+    assert "knarr-1" not in raw  # what was typed stays out of the file (see the redaction tests below)
 
 
 def test_fill_read_only_simulates(tmp_path: Path):
@@ -713,7 +713,7 @@ def test_a_value_repeated_in_an_error_is_taken_out_of_the_trace(tmp_path: Path):
     def _failing_fill(label, value):  # Playwright's call log repeats the value it was asked to type
         return {"success": False, "error": f'TimeoutError: locator.fill: Timeout 30000ms exceeded.\n  - fill("{value}")'}
 
-    page._theseus_fill = _failing_fill
+    page._knarr_fill = _failing_fill
     ctx = _make_context(tmp_path, page=page)
     result = _tool(build_palette(ctx), "fill").run({"label": "Password", "value": SECRET})
     assert result.startswith("fill_failed")
@@ -724,7 +724,7 @@ def test_a_value_repeated_in_an_error_is_taken_out_of_the_trace(tmp_path: Path):
 
 def test_a_very_short_value_is_not_cut_out_of_an_error(tmp_path: Path):
     page = _make_page()
-    page._theseus_fill = lambda label, value: {"success": False, "error": "TimeoutError: element is not an input"}
+    page._knarr_fill = lambda label, value: {"success": False, "error": "TimeoutError: element is not an input"}
     ctx = _make_context(tmp_path, page=page)
     _tool(build_palette(ctx), "fill").run({"label": "Code", "value": "in"})  # "in" would mangle "input"
     (record,) = _fill_trace(ctx)
@@ -811,7 +811,7 @@ def test_assert_state_matches_signals_terminal_success(tmp_path: Path):
     ctx = _make_context(tmp_path, page=page)
     tools = build_palette(ctx)
     result = _tool(tools, "assert_state").run(
-        {"description": "offer named theseus-1 in list"}
+        {"description": "offer named knarr-1 in list"}
     )
     assert result.startswith("matches:")
     assert ctx.success_asserted is True
@@ -853,7 +853,7 @@ def test_give_up_with_empty_reason_still_latches(tmp_path: Path):
 
 # ============================================================================
 # Production-path adapters.
-# Tests register no _theseus_* methods so the click/wait/assert fallbacks
+# Tests register no _knarr_* methods so the click/wait/assert fallbacks
 # run against duck-typed Playwright-shaped pages.
 # ============================================================================
 
@@ -863,14 +863,14 @@ def _make_playwright_shaped_page(
     raise_on_text_locator: bool = False,
 ):
     """Build a page that mimics enough of Playwright's surface to
-    exercise the production action adapters without ``_theseus_*``
-    overrides — using ``spec_set`` so ``hasattr(page, '_theseus_click')``
+    exercise the production action adapters without ``_knarr_*``
+    overrides — using ``spec_set`` so ``hasattr(page, '_knarr_click')``
     returns False (otherwise the production fallback never runs)."""
 
     class _PlaywrightLike:
         """Spec class — explicitly enumerates Playwright surface
-        Theseus's adapters touch. Anything outside this list errors
-        on access (so an accidental ``page._theseus_click`` raises
+        Knarr's adapters touch. Anything outside this list errors
+        on access (so an accidental ``page._knarr_click`` raises
         ``AttributeError`` and the production path runs)."""
 
         url = ""
@@ -906,7 +906,7 @@ def _make_playwright_shaped_page(
 
 def test_click_target_uses_first_matching_selector(tmp_path: Path, monkeypatch):
     """The first selector in the chain wins → fallback_used=False."""
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     calls = {"args": None}
     def _fake_find(page, selectors, timeout=2500, run_logger=None):
@@ -915,7 +915,7 @@ def test_click_target_uses_first_matching_selector(tmp_path: Path, monkeypatch):
         elem = MagicMock(name="elem")
         return elem, selectors[0]
     monkeypatch.setattr(
-        "theseus.explorer.explorer_tools._find_first_visible",
+        "knarr.explorer.explorer_tools._find_first_visible",
         _fake_find,
     )
     page = _make_playwright_shaped_page()
@@ -928,14 +928,14 @@ def test_click_target_uses_first_matching_selector(tmp_path: Path, monkeypatch):
 def test_click_target_records_fallback_when_chain_winner_isnt_first(
     tmp_path: Path, monkeypatch
 ):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     def _fake_find(page, selectors, **_kwargs):
         # Second-from-last selector wins.
         winner = selectors[-2]
         return MagicMock(name="elem"), winner
     monkeypatch.setattr(
-        "theseus.explorer.explorer_tools._find_first_visible",
+        "knarr.explorer.explorer_tools._find_first_visible",
         _fake_find,
     )
     page = _make_playwright_shaped_page()
@@ -946,10 +946,10 @@ def test_click_target_records_fallback_when_chain_winner_isnt_first(
 def test_click_target_falls_through_to_get_by_text(tmp_path: Path, monkeypatch):
     """When no selector in the chain matches, the adapter falls
     through to Playwright's text engine and reports fallback_used=True."""
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     monkeypatch.setattr(
-        "theseus.explorer.explorer_tools._find_first_visible",
+        "knarr.explorer.explorer_tools._find_first_visible",
         lambda page, selectors, **_: (None, None),
     )
     page = _make_playwright_shaped_page()
@@ -962,12 +962,12 @@ def test_click_target_falls_through_to_get_by_text(tmp_path: Path, monkeypatch):
 
 
 def test_click_target_returns_error_on_exception(tmp_path: Path, monkeypatch):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     def _boom(page, selectors, **_kwargs):
         raise RuntimeError("connection lost")
     monkeypatch.setattr(
-        "theseus.explorer.explorer_tools._find_first_visible",
+        "knarr.explorer.explorer_tools._find_first_visible",
         _boom,
     )
     page = _make_playwright_shaped_page()
@@ -980,7 +980,7 @@ def test_click_target_returns_error_on_exception(tmp_path: Path, monkeypatch):
 def test_click_target_refuses_empty_target(target, monkeypatch):
     """An empty target would match every element via :has-text("") and
     get_by_text(""), so it must fail without touching the page."""
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     finder = MagicMock(side_effect=AssertionError("chain must not run"))
     monkeypatch.setattr(et, "_find_first_visible", finder)
@@ -1025,7 +1025,7 @@ class _ChainPage:
 
 
 def test_find_first_visible_prefers_earliest_selector_in_chain():
-    from theseus.explorer.explorer_tools import _find_first_visible
+    from knarr.explorer.explorer_tools import _find_first_visible
 
     page = _ChainPage(visible={"b": [True], "c": [True]})
     _, selector = _find_first_visible(page, ["a", "b", "c"], timeout=200)
@@ -1033,7 +1033,7 @@ def test_find_first_visible_prefers_earliest_selector_in_chain():
 
 
 def test_find_first_visible_skips_broken_selectors():
-    from theseus.explorer.explorer_tools import _find_first_visible
+    from knarr.explorer.explorer_tools import _find_first_visible
 
     page = _ChainPage(visible={"c": [True]}, broken={"a", "b"})
     _, selector = _find_first_visible(page, ["a", "b", "c"], timeout=200)
@@ -1041,7 +1041,7 @@ def test_find_first_visible_skips_broken_selectors():
 
 
 def test_find_first_visible_finds_element_that_appears_late():
-    from theseus.explorer.explorer_tools import _find_first_visible
+    from knarr.explorer.explorer_tools import _find_first_visible
 
     page = _ChainPage(visible={"b": [False, False, True]})
     _, selector = _find_first_visible(page, ["a", "b"], timeout=2000)
@@ -1051,7 +1051,7 @@ def test_find_first_visible_finds_element_that_appears_late():
 
 def test_find_first_visible_gives_up_after_timeout():
     import time as _time
-    from theseus.explorer.explorer_tools import _find_first_visible
+    from knarr.explorer.explorer_tools import _find_first_visible
 
     page = _ChainPage()
     started = _time.monotonic()
@@ -1063,7 +1063,7 @@ def test_find_first_visible_gives_up_after_timeout():
 
 def test_find_first_visible_returns_immediately_when_every_selector_is_broken():
     import time as _time
-    from theseus.explorer.explorer_tools import _find_first_visible
+    from knarr.explorer.explorer_tools import _find_first_visible
 
     page = _ChainPage(broken={"a", "b"})
     started = _time.monotonic()
@@ -1072,7 +1072,7 @@ def test_find_first_visible_returns_immediately_when_every_selector_is_broken():
 
 
 def test_find_first_visible_handles_empty_chain():
-    from theseus.explorer.explorer_tools import _find_first_visible
+    from knarr.explorer.explorer_tools import _find_first_visible
 
     assert _find_first_visible(_ChainPage(), [], timeout=5000) == (None, None)
 
@@ -1082,7 +1082,7 @@ def test_find_first_visible_handles_empty_chain():
 # ----------------------------------------------------------------------------
 
 def test_generate_click_selectors_orders_data_testid_first():
-    from theseus.explorer.explorer_tools import _generate_click_selectors
+    from knarr.explorer.explorer_tools import _generate_click_selectors
 
     chain = _generate_click_selectors("Save offer")
     assert chain[0] == '[data-testid="save-offer"]'
@@ -1091,7 +1091,7 @@ def test_generate_click_selectors_orders_data_testid_first():
 
 
 def test_generate_click_selectors_handles_special_chars():
-    from theseus.explorer.explorer_tools import _generate_click_selectors
+    from knarr.explorer.explorer_tools import _generate_click_selectors
 
     chain = _generate_click_selectors("Save / Cancel — now!")
     # Slug is letters + digits + collapsed dashes.
@@ -1101,7 +1101,7 @@ def test_generate_click_selectors_handles_special_chars():
 def test_generate_click_selectors_handles_empty_target():
     """Punctuation-only target produces an empty slug; chain falls
     back to has-text selectors only."""
-    from theseus.explorer.explorer_tools import _generate_click_selectors
+    from knarr.explorer.explorer_tools import _generate_click_selectors
 
     chain = _generate_click_selectors("...")
     # No data-testid selectors when slug is empty.
@@ -1111,7 +1111,7 @@ def test_generate_click_selectors_handles_empty_target():
 
 
 def test_slug_for_selector_collapses_runs():
-    from theseus.explorer.explorer_tools import _slug_for_selector
+    from knarr.explorer.explorer_tools import _slug_for_selector
 
     assert _slug_for_selector("a---b   c") == "a-b-c"
     assert _slug_for_selector("Foo Bar Baz") == "foo-bar-baz"
@@ -1124,7 +1124,7 @@ def test_slug_for_selector_collapses_runs():
 # ----------------------------------------------------------------------------
 
 def test_wait_for_production_returns_success_when_networkidle_resolves(tmp_path: Path):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     page = _make_playwright_shaped_page()
     page.wait_for_load_state.return_value = None
@@ -1136,7 +1136,7 @@ def test_wait_for_production_returns_success_when_networkidle_resolves(tmp_path:
 
 
 def test_wait_for_production_returns_failure_on_timeout(tmp_path: Path):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     page = _make_playwright_shaped_page()
     page.wait_for_load_state.side_effect = RuntimeError("Timeout 8000ms exceeded")
@@ -1150,18 +1150,18 @@ def test_wait_for_production_returns_failure_on_timeout(tmp_path: Path):
 # ----------------------------------------------------------------------------
 
 def test_assert_state_finds_quoted_phrase_in_body(tmp_path: Path):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     page = _make_playwright_shaped_page(
-        body_text="Offers list\nName: theseus-1\nStatus: active",
+        body_text="Offers list\nName: knarr-1\nStatus: active",
     )
-    result = et._assert_state(page, "Offer named 'theseus-1' appears in the offers list")
+    result = et._assert_state(page, "Offer named 'knarr-1' appears in the offers list")
     assert result["matches"] is True
-    assert "theseus-1" in result["evidence"]
+    assert "knarr-1" in result["evidence"]
 
 
 def test_assert_state_returns_not_matched_when_phrase_absent(tmp_path: Path):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     page = _make_playwright_shaped_page(body_text="Empty offers list")
     result = et._assert_state(page, "Offer named 'never-existed' appears")
@@ -1171,7 +1171,7 @@ def test_assert_state_returns_not_matched_when_phrase_absent(tmp_path: Path):
 
 def test_assert_state_falls_back_to_full_description_when_no_quotes(tmp_path: Path):
     """No quotes → whole description is the only candidate phrase."""
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     page = _make_playwright_shaped_page(body_text="user is on the offers page now")
     result = et._assert_state(page, "user is on the offers page now")
@@ -1179,7 +1179,7 @@ def test_assert_state_falls_back_to_full_description_when_no_quotes(tmp_path: Pa
 
 
 def test_assert_state_records_body_read_failure(tmp_path: Path):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     page = _make_playwright_shaped_page()
     page.locator.side_effect = lambda sel: (_ for _ in ()).throw(
@@ -1191,17 +1191,17 @@ def test_assert_state_records_body_read_failure(tmp_path: Path):
 
 
 def test_extract_assert_phrases_double_and_single_quotes():
-    from theseus.explorer.explorer_tools import _extract_assert_phrases
+    from knarr.explorer.explorer_tools import _extract_assert_phrases
 
-    assert _extract_assert_phrases('Offer named "theseus-1" in list') == ["theseus-1"]
-    assert _extract_assert_phrases("Offer named 'theseus-2'") == ["theseus-2"]
+    assert _extract_assert_phrases('Offer named "knarr-1" in list') == ["knarr-1"]
+    assert _extract_assert_phrases("Offer named 'knarr-2'") == ["knarr-2"]
     # Multiple quotes get accumulated.
     pulled = _extract_assert_phrases('"foo" and "bar"')
     assert set(pulled) == {"foo", "bar"}
 
 
 def test_extract_assert_phrases_empty_description():
-    from theseus.explorer.explorer_tools import _extract_assert_phrases
+    from knarr.explorer.explorer_tools import _extract_assert_phrases
 
     assert _extract_assert_phrases("") == []
     assert _extract_assert_phrases("   ") == []
@@ -1210,13 +1210,13 @@ def test_extract_assert_phrases_empty_description():
 # ============================================================================
 # Production page-state extraction via page.evaluate
 # (an earlier bug: read_page was returning empty summaries because
-# nothing in production set _theseus_visible_* — only test fixtures did)
+# nothing in production set _knarr_visible_* — only test fixtures did)
 # ============================================================================
 
 def test_capture_via_evaluate_returns_dict_from_page_evaluate():
     """Production path: page.evaluate returns a dict, dispatcher uses it
     directly without falling back to fixture attributes."""
-    from theseus.explorer.explorer_tools import (
+    from knarr.explorer.explorer_tools import (
         _capture_via_evaluate,
         _PAGE_STATE_JS,
     )
@@ -1249,7 +1249,7 @@ def test_capture_via_evaluate_returns_none_when_evaluate_raises():
     """A live page can fail evaluate for many reasons — page closed mid-
     navigation, JS error from a custom app extension, etc. The
     dispatcher must fall back, not crash the tool call."""
-    from theseus.explorer.explorer_tools import _capture_via_evaluate
+    from knarr.explorer.explorer_tools import _capture_via_evaluate
 
     def _raises(_script):
         raise RuntimeError("page closed")
@@ -1263,7 +1263,7 @@ def test_capture_via_evaluate_returns_none_when_result_not_dict():
     .evaluate(...), which is callable but isn't a dict. The dispatcher
     must reject that result so the fixture-attribute fallback fires —
     otherwise existing 286-test suite would break."""
-    from theseus.explorer.explorer_tools import _capture_via_evaluate
+    from knarr.explorer.explorer_tools import _capture_via_evaluate
 
     page_mock = MagicMock()
     # MagicMock.evaluate(...) returns a MagicMock (not a dict).
@@ -1273,7 +1273,7 @@ def test_capture_via_evaluate_returns_none_when_result_not_dict():
 def test_capture_via_evaluate_returns_none_when_evaluate_absent():
     """Some test pages don't even have an evaluate method. The dispatcher
     must duck-type gracefully."""
-    from theseus.explorer.explorer_tools import _capture_via_evaluate
+    from knarr.explorer.explorer_tools import _capture_via_evaluate
 
     page = SimpleNamespace(url="https://x")
     assert _capture_via_evaluate(page) is None
@@ -1284,7 +1284,7 @@ def test_capture_page_summary_prefers_evaluate_path_over_fixture():
     attributes set on the same page are ignored. Production gets the
     real DOM scan; tests that want fixture control must avoid setting
     evaluate to a dict-returning callable."""
-    from theseus.explorer.explorer_tools import _capture_page_summary
+    from knarr.explorer.explorer_tools import _capture_page_summary
 
     fake_state = {
         "url": "https://x/y",
@@ -1300,7 +1300,7 @@ def test_capture_page_summary_prefers_evaluate_path_over_fixture():
         evaluate=lambda script: fake_state,
         url="https://wrong",  # would-be fixture
         title=lambda: "wrong",
-        _theseus_visible_buttons=["FixtureButton"],  # would-be fixture
+        _knarr_visible_buttons=["FixtureButton"],  # would-be fixture
     )
     summary = _capture_page_summary(page)
     assert summary.url == "https://x/y"
@@ -1312,7 +1312,7 @@ def test_capture_page_summary_falls_back_to_fixture_attrs(tmp_path):
     """MagicMock pages (the standard test seam) have evaluate-returns-
     MagicMock semantics. The dispatcher must fall back to fixture
     attributes so existing tests keep working unchanged."""
-    from theseus.explorer.explorer_tools import _capture_page_summary
+    from knarr.explorer.explorer_tools import _capture_page_summary
 
     page = _make_page(
         url="https://sandbox.example/",
@@ -1333,7 +1333,7 @@ def test_capture_page_summary_surfaces_open_menus_from_evaluate():
     """The Portal-dropdown finding: clicking 'New' opens a [role=menu]
     that's not a descendant of the click target. The JS extraction
     queries the whole document so menu items show up in open_menus."""
-    from theseus.explorer.explorer_tools import _capture_page_summary
+    from knarr.explorer.explorer_tools import _capture_page_summary
 
     fake_state = {
         "url": "https://x",
@@ -1408,17 +1408,17 @@ def test_page_summary_to_text_omits_links_section_when_empty():
 def test_capture_via_fixture_attrs_reads_new_fields():
     """The fixture path also needs to know about open_menus and links
     so tests can drive the dispatcher's fallback branch end-to-end."""
-    from theseus.explorer.explorer_tools import _capture_via_fixture_attrs
+    from knarr.explorer.explorer_tools import _capture_via_fixture_attrs
 
     page = MagicMock()
     page.url = "https://x"
     page.title.return_value = "t"
-    page._theseus_visible_buttons = ["b"]
-    page._theseus_visible_links = ["L"]
-    page._theseus_visible_input_labels = []
-    page._theseus_visible_headings = []
-    page._theseus_open_menus = ["m1"]
-    page._theseus_modal_text = None
+    page._knarr_visible_buttons = ["b"]
+    page._knarr_visible_links = ["L"]
+    page._knarr_visible_input_labels = []
+    page._knarr_visible_headings = []
+    page._knarr_open_menus = ["m1"]
+    page._knarr_modal_text = None
 
     state = _capture_via_fixture_attrs(page)
     assert state["buttons"] == ["b"]
@@ -1437,7 +1437,7 @@ def test_capture_via_fixture_attrs_reads_new_fields():
 def test_capture_page_summary_surfaces_field_errors_from_evaluate():
     """When page.evaluate returns field_errors, they land in PageSummary
     verbatim so Claude can act on them next turn."""
-    from theseus.explorer.explorer_tools import _capture_page_summary
+    from knarr.explorer.explorer_tools import _capture_page_summary
 
     fake_state = {
         "url": "https://x/offer/new",
@@ -1502,25 +1502,25 @@ def test_page_summary_to_text_omits_field_errors_section_when_empty():
     assert "field errors:" not in summary.to_text()
 
 
-def test_capture_via_fixture_attrs_reads_theseus_field_errors():
-    """The fixture-attribute test seam includes _theseus_field_errors
+def test_capture_via_fixture_attrs_reads_knarr_field_errors():
+    """The fixture-attribute test seam includes _knarr_field_errors
     so tests can drive the fallback branch end-to-end without mocking
     page.evaluate."""
-    from theseus.explorer.explorer_tools import _capture_via_fixture_attrs
+    from knarr.explorer.explorer_tools import _capture_via_fixture_attrs
 
     page = MagicMock()
     page.url = "https://x"
     page.title.return_value = "t"
-    page._theseus_visible_buttons = []
-    page._theseus_visible_links = []
-    page._theseus_visible_input_labels = []
-    page._theseus_visible_headings = []
-    page._theseus_open_menus = []
-    page._theseus_field_errors = [
+    page._knarr_visible_buttons = []
+    page._knarr_visible_links = []
+    page._knarr_visible_input_labels = []
+    page._knarr_visible_headings = []
+    page._knarr_open_menus = []
+    page._knarr_field_errors = [
         "Category cannot be empty",
         "Owner is required",
     ]
-    page._theseus_modal_text = None
+    page._knarr_modal_text = None
 
     state = _capture_via_fixture_attrs(page)
     assert state["field_errors"] == [
@@ -1554,7 +1554,7 @@ def test_field_errors_missing_from_evaluate_result_defaults_empty():
     """A page.evaluate result predating this JS change (or one that
     doesn't include field_errors for some reason) must not crash —
     the summary defaults to empty tuple, no error line renders."""
-    from theseus.explorer.explorer_tools import _capture_page_summary
+    from knarr.explorer.explorer_tools import _capture_page_summary
 
     fake_state = {
         "url": "https://x",
@@ -1586,7 +1586,7 @@ def test_read_page_renders_indexed_elements_and_populates_map(tmp_path: Path):
     """read_page must surface the numbered element list AND cache the
     index->text map so click_index can run the forbidden-action check."""
     page = _make_page()
-    page._theseus_elements = [
+    page._knarr_elements = [
         _elem(0, "button", text="Add to Cart"),
         _elem(1, "link", text="Cart"),
         _elem(2, "input", label="Search Amazon"),
@@ -1605,7 +1605,7 @@ def test_read_page_trace_records_element_sample(tmp_path: Path):
     import json
 
     page = _make_page()
-    page._theseus_elements = [_elem(0, "button", text="Go")]
+    page._knarr_elements = [_elem(0, "button", text="Go")]
     ctx = _make_context(tmp_path, page=page)
     tools = build_palette(ctx)
     _tool(tools, "read_page").run({})
@@ -1626,7 +1626,7 @@ def test_click_index_resolves_and_clicks(tmp_path: Path):
         clicked["index"] = index
         return {"success": True}
 
-    page._theseus_click_index = _record
+    page._knarr_click_index = _record
     ctx = _make_context(tmp_path, page=page)
     tools = build_palette(ctx)
     # Prime the map as read_page would.
@@ -1640,7 +1640,7 @@ def test_click_index_honors_forbidden_text_via_cached_map(tmp_path: Path):
     """The index path must not be a hole in the forbidden-action guard:
     a denied element's cached text still trips the denylist."""
     page = _make_page()
-    page._theseus_click_index = lambda index: {"success": True}
+    page._knarr_click_index = lambda index: {"success": True}
     ctx = _make_context(
         tmp_path,
         page=page,
@@ -1661,7 +1661,7 @@ def test_click_index_read_only_simulates(tmp_path: Path):
         fired["called"] = True
         return {"success": True}
 
-    page._theseus_click_index = _boom
+    page._knarr_click_index = _boom
     ctx = _make_context(tmp_path, page=page, read_only=True)
     tools = build_palette(ctx)
     ctx.last_elements = {0: "Save"}
@@ -1675,7 +1675,7 @@ def test_click_index_unknown_index_still_clicks_without_denial(tmp_path: Path):
     read_page) resolves with empty denial text — the real adapter decides
     whether the node exists."""
     page = _make_page()
-    page._theseus_click_index = lambda index: {"success": True}
+    page._knarr_click_index = lambda index: {"success": True}
     ctx = _make_context(tmp_path, page=page)
     result = _tool(tools := build_palette(ctx), "click_index").run({"index": 9})
     assert result.startswith("clicked: [9]")
@@ -1684,7 +1684,7 @@ def test_click_index_unknown_index_still_clicks_without_denial(tmp_path: Path):
 def test_capture_indexed_elements_from_evaluate(tmp_path: Path):
     """End-to-end through the production evaluate path: a JS result with
     an elements array becomes IndexedElement rows on the summary."""
-    from theseus.explorer.explorer_tools import _capture_page_summary
+    from knarr.explorer.explorer_tools import _capture_page_summary
 
     fake_state = {
         "url": "https://amazon.com",
@@ -1707,7 +1707,7 @@ def test_capture_indexed_elements_from_evaluate(tmp_path: Path):
 
 
 def test_coerce_indexed_elements_drops_junk_rows():
-    from theseus.explorer.explorer_tools import _coerce_indexed_elements
+    from knarr.explorer.explorer_tools import _coerce_indexed_elements
 
     coerced = _coerce_indexed_elements(
         [_elem(0, "button", text="Ok"), "not-a-dict", {"kind": "link"}]
@@ -1826,7 +1826,7 @@ def test_wait_for_waits_for_quoted_text(tmp_path):
 
 
 def test_wait_for_times_out_when_quoted_text_never_appears(tmp_path, monkeypatch):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     monkeypatch.setattr(et, "WAIT_FOR_TIMEOUT_MS", 300)
     ctx = _make_context(tmp_path, page=_TextPage(appears_after=None))
@@ -1853,7 +1853,7 @@ def _body_page(text):
     ("Nothing yet", False, False),
 ])
 def test_assert_state_any_versus_all_phrases(body, any_match, all_match):
-    from theseus.explorer.explorer_tools import _assert_state
+    from knarr.explorer.explorer_tools import _assert_state
 
     criterion = "shows 'Order placed' and 'Total: $5'"
     assert _assert_state(_body_page(body), criterion)["matches"] is any_match
@@ -1890,11 +1890,11 @@ def no_thread_sleep(monkeypatch):
     def fail(seconds):
         raise AssertionError(f"time.sleep({seconds}) on the browser thread")
 
-    monkeypatch.setattr("theseus.explorer.explorer_tools.time.sleep", fail)
+    monkeypatch.setattr("knarr.explorer.explorer_tools.time.sleep", fail)
 
 
 def test_finding_a_control_polls_through_the_browsers_event_loop(no_thread_sleep):
-    from theseus.explorer.explorer_tools import CLICK_CHAIN_POLL_MS, _find_first_visible
+    from knarr.explorer.explorer_tools import CLICK_CHAIN_POLL_MS, _find_first_visible
 
     page = _LoopPage(visible={"b": [False, False, True]})
     _, selector = _find_first_visible(page, ["a", "b"], timeout=2000)
@@ -1902,9 +1902,9 @@ def test_finding_a_control_polls_through_the_browsers_event_loop(no_thread_sleep
 
 
 def test_waiting_for_text_polls_through_the_browsers_event_loop(no_thread_sleep):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
-    class Page:  # no _theseus_* hooks: the production path
+    class Page:  # no _knarr_* hooks: the production path
         def __init__(self):
             self.polls, self.waits = 0, []
 
@@ -1928,7 +1928,7 @@ def test_waiting_for_text_polls_through_the_browsers_event_loop(no_thread_sleep)
 
 
 def test_pause_falls_back_to_a_sleep_when_the_page_cannot_wait(monkeypatch):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     slept = []
     monkeypatch.setattr(et.time, "sleep", slept.append)
@@ -1940,7 +1940,7 @@ def test_pause_falls_back_to_a_sleep_when_the_page_cannot_wait(monkeypatch):
 
 
 def test_pause_waits_at_least_a_millisecond():
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     page = MagicMock()
     et._pause(page, 0.0001)
@@ -1948,11 +1948,11 @@ def test_pause_waits_at_least_a_millisecond():
 
 
 # ----------------------------------------------------------------------------
-# Text on Theseus's own stand-in page is never evidence, for the page that produced the match
+# Text on Knarr's own stand-in page is never evidence, for the page that produced the match
 # ----------------------------------------------------------------------------
 
 def test_a_phrase_that_appears_after_the_page_became_the_stand_in_does_not_count(no_thread_sleep):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     class Page:  # the form submits itself on the 3rd poll; the stand-in then shows the phrase
         def __init__(self):
@@ -1979,7 +1979,7 @@ def test_a_phrase_that_appears_after_the_page_became_the_stand_in_does_not_count
 
 
 def test_assert_state_asks_about_the_page_after_reading_its_text():
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     class Page:
         on_stand_in = False
@@ -2002,7 +2002,7 @@ def test_assert_state_asks_about_the_page_after_reading_its_text():
 
 
 def test_a_stand_in_check_that_raises_is_not_a_veto():
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     assert et._quiet_true(lambda: 1 / 0) is False and et._quiet_true(None) is False
 
@@ -2020,15 +2020,15 @@ def test_screenshot_can_take_the_whole_page_when_asked(tmp_path: Path):
 
 SHOP_LOG = """TimeoutError: Locator.click: Timeout 5000ms exceeded.
 Call log:
-waiting for locator("[data-theseus-index=\"17\"]").first
-  -   locator resolved to <a class="ac-ln-button" data-theseus-index="17" href="/us/shop/goto/buy_watch/watch_series_12">…</a>
+waiting for locator("[data-knarr-index=\"17\"]").first
+  -   locator resolved to <a class="ac-ln-button" data-knarr-index="17" href="/us/shop/goto/buy_watch/watch_series_12">…</a>
   - attempting click action
-  -   <a role="button" aria-expanded="false" data-theseus-index="12" href="/us/shop/goto/bag" aria-label="Shopping Bag" id="globalnav-menubutton-link-bag">…</a> from <div id="globalheader">…</div> subtree intercepts pointer events
+  -   <a role="button" aria-expanded="false" data-knarr-index="12" href="/us/shop/goto/bag" aria-label="Shopping Bag" id="globalnav-menubutton-link-bag">…</a> from <div id="globalheader">…</div> subtree intercepts pointer events
 """ + "  - retrying click action, attempt #1\n  -   waiting 500ms\n" * 40
 
 
 def test_a_click_blocked_by_another_element_names_it_in_a_few_lines():
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     short = et._short_error(SHOP_LOG)
     assert len(short) < 700 and len(SHOP_LOG) > 2500
@@ -2038,7 +2038,7 @@ def test_a_click_blocked_by_another_element_names_it_in_a_few_lines():
 
 
 def test_any_other_error_is_cut_at_a_limit_and_a_short_one_is_left_alone():
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     assert et._short_error("TimeoutError: waiting for locator") == "TimeoutError: waiting for locator"
     long = "x" * 5000
@@ -2048,7 +2048,7 @@ def test_any_other_error_is_cut_at_a_limit_and_a_short_one_is_left_alone():
 
 def test_the_returned_failure_is_short_but_the_trace_keeps_the_whole_error(tmp_path: Path):
     page = _make_page()
-    del page._theseus_click_index  # the production path
+    del page._knarr_click_index  # the production path
     long_log = SHOP_LOG.replace("intercepts pointer events", "is not stable")
     page.locator.return_value.first.click.side_effect = RuntimeError(long_log)
     tools = build_palette(_make_context(tmp_path, page=page))
@@ -2075,7 +2075,7 @@ class FakeLocator:
 
 
 def test_a_click_that_works_is_just_a_click():
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     locator = FakeLocator()
     assert et._click_recovering(locator, timeout=5000) is None
@@ -2083,7 +2083,7 @@ def test_a_click_that_works_is_just_a_click():
 
 
 def test_a_target_covered_by_another_element_gets_the_click_directly_and_says_so():
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     locator = FakeLocator(["Locator.click: Timeout\n  - <div id=header> from <div> subtree intercepts pointer events"])
     assert et._click_recovering(locator) == et.COVERED_CLICK_NOTE
@@ -2091,7 +2091,7 @@ def test_a_target_covered_by_another_element_gets_the_click_directly_and_says_so
 
 
 def test_any_other_click_failure_gets_the_rest_of_the_time_and_then_raises():
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     locator = FakeLocator(["not visible", "still not visible"])
     with pytest.raises(RuntimeError, match="still not visible"):
@@ -2106,10 +2106,10 @@ def test_any_other_click_failure_gets_the_rest_of_the_time_and_then_raises():
 
 
 def test_the_note_reaches_the_agent_and_the_trace(tmp_path: Path):
-    from theseus.explorer import explorer_tools as et
+    from knarr.explorer import explorer_tools as et
 
     page = _make_page()
-    page._theseus_click_index = lambda index: {"success": True, "selector": "x", "note": et.COVERED_CLICK_NOTE}
+    page._knarr_click_index = lambda index: {"success": True, "selector": "x", "note": et.COVERED_CLICK_NOTE}
     tools = build_palette(_make_context(tmp_path, page=page))
     result = _tool(tools, "click_index").run({"index": 3})
     assert result.endswith(f"({et.COVERED_CLICK_NOTE})") and result.startswith("clicked")

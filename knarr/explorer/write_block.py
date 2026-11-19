@@ -1,13 +1,13 @@
 """Network write block: requests that could change data are faked, not sent.
 
-GET, HEAD and OPTIONS pass through. Every other HTTP request in Theseus's
+GET, HEAD and OPTIONS pass through. Every other HTTP request in Knarr's
 browser is answered with a fake success and recorded instead of reaching the
 server, and outgoing WebSocket messages from pages are recorded and dropped.
 A GET, HEAD or OPTIONS request that carries a body counts as a write. Clicks
 still really happen, so the agent can explore; only what would have been sent
 is held back.
 
-Theseus always runs its own browser (``explorer.session``), so the block
+Knarr always runs its own browser (``explorer.session``), so the block
 intercepts at the browser level (CDP ``Fetch`` on the browser target), not
 per page. That also catches requests the browser itself sends for a page,
 such as the ``sendBeacon`` and ``fetch(keepalive)`` requests current Chrome
@@ -30,13 +30,13 @@ fields (only names that look like field names; anything else is counted, not
 shown), and the body's kind (from its Content-Type) and size. A shape rule is
 a guess: a lowercase slug, a username or a key that is data can pass for a
 route word or a field name. The user can name fields whose values should be
-recorded with ``THESEUS_RECORD_FIELDS`` (comma-separated field names);
+recorded with ``KNARR_RECORD_FIELDS`` (comma-separated field names);
 nothing else is ever recorded.
 
 Policy. The MCP server blocks by default; the command-line runner doesn't
 (blocking pauses a page's network while the model thinks there). The user
-decides with ``THESEUS_BLOCK_WRITES=1`` or ``THESEUS_ALLOW_WRITES=1``; if both
-are set, writes are blocked. ``THESEUS_WRITE_ALLOW`` lets named requests
+decides with ``KNARR_BLOCK_WRITES=1`` or ``KNARR_ALLOW_WRITES=1``; if both
+are set, writes are blocked. ``KNARR_WRITE_ALLOW`` lets named requests
 through: comma-separated URL patterns. In a pattern, the part before any
 ``?`` is matched against the URL's scheme, host, port and path (``**`` matches
 anything, ``*`` one path segment; at most two ``**``); a part after ``?`` is
@@ -71,14 +71,14 @@ from pathlib import Path
 from typing import Any, Dict, IO, Iterable, List, Optional, Set, Tuple
 from urllib.parse import unquote_plus, urlsplit
 
-from theseus.explorer.borrow import is_devtools_endpoint
+from knarr.explorer.borrow import is_devtools_endpoint
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
-ALLOW_WRITES_ENV = "THESEUS_ALLOW_WRITES"
-BLOCK_WRITES_ENV = "THESEUS_BLOCK_WRITES"
-WRITE_ALLOW_ENV = "THESEUS_WRITE_ALLOW"
-RECORD_FIELDS_ENV = "THESEUS_RECORD_FIELDS"
+ALLOW_WRITES_ENV = "KNARR_ALLOW_WRITES"
+BLOCK_WRITES_ENV = "KNARR_BLOCK_WRITES"
+WRITE_ALLOW_ENV = "KNARR_WRITE_ALLOW"
+RECORD_FIELDS_ENV = "KNARR_RECORD_FIELDS"
 CAPTURED_WRITES_FILE = "captured_writes.jsonl"
 
 MAX_FIELD_NAMES = 30
@@ -89,10 +89,10 @@ MAX_PARSE_BYTES = 1_000_000  # larger bodies are recorded by kind and size only
 MAX_RECORDS = 5000  # records kept and listed; later writes are only counted
 LARGE_BODY_BYTES = 5_000_000
 
-BLOCKED_TITLE = "Blocked by Theseus"
+BLOCKED_TITLE = "Blocked by Knarr"
 BLOCKED_PAGE = """<!doctype html><title>{title}</title>
 <h1>{title}</h1>
-<p>This page submitted data ({method} {url}). Theseus blocks writes, so nothing was sent.</p>"""
+<p>This page submitted data ({method} {url}). Knarr blocks writes, so nothing was sent.</p>"""
 
 # Request types that can carry a write. Everything else CDP knows (images,
 # scripts, stylesheets, fonts, media, manifests, prefetches, preflights...) is
@@ -109,7 +109,7 @@ READ_ONLY_RESOURCE_TYPES = frozenset({
 # these types, so they can't be paused by type: not covered.
 UNFILTERABLE_RESOURCE_TYPES = frozenset({"FedCM"})
 
-# Chromium flags for the browser Theseus launches. SharedWorker and
+# Chromium flags for the browser Knarr launches. SharedWorker and
 # WebSocketStream are switched off in every realm, workers and sandboxed frames
 # included, which a page script can't do.
 LAUNCH_ARGS = ("--disable-blink-features=SharedWorker,WebSocketStream",)
@@ -120,7 +120,7 @@ DISABLE_UNCOVERED_CHANNELS_SCRIPT = """(() => {
   for (const name of ['SharedWorker', 'WebSocketStream', 'WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) {
     if (!(name in window)) continue;
     const blocked = function () {
-      throw new DOMException(name + ' is disabled by Theseus: its traffic could not be blocked', 'SecurityError');
+      throw new DOMException(name + ' is disabled by Knarr: its traffic could not be blocked', 'SecurityError');
     };
     // An accessor, and configurable, so a polyfill's `window.RTCPeerConnection = ... || ...`, a global `let RTCPeerConnection`
     // or a defineProperty doesn't throw. The real constructor is gone from the window either way.
@@ -168,7 +168,7 @@ class WritePolicy:
 
         ``extra_allow`` and ``live`` come from a site profile (``profiles``), which
         can loosen the policy for one site but never overrule the environment:
-        ``THESEUS_BLOCK_WRITES`` blocks even a profile that says ``live``, and the
+        ``KNARR_BLOCK_WRITES`` blocks even a profile that says ``live``, and the
         profile's patterns come after the environment's.
         """
         if parse_switch(os.environ.get(BLOCK_WRITES_ENV)) is not False:
@@ -267,7 +267,7 @@ def _is_field_name(name: Any) -> bool:
 def _field_names(names: Iterable[Any], listed: Tuple[str, ...] = ()) -> Tuple[List[str], int]:
     """(distinct names that look like field names, count of the others).
 
-    A name the user listed in ``THESEUS_RECORD_FIELDS`` is shown whatever it
+    A name the user listed in ``KNARR_RECORD_FIELDS`` is shown whatever it
     looks like."""
     kept: Dict[str, None] = {}
     rejected = 0
@@ -454,12 +454,12 @@ def validate_allow_pattern(text: str, source: str = WRITE_ALLOW_ENV) -> None:
 
 @dataclass(frozen=True)
 class AllowPattern:
-    """A ``THESEUS_WRITE_ALLOW`` entry, matched part by part."""
+    """A ``KNARR_WRITE_ALLOW`` entry, matched part by part."""
 
     text: str
 
     def __post_init__(self) -> None:
-        from theseus.explorer.explorer_tools import compile_url_pattern
+        from knarr.explorer.explorer_tools import compile_url_pattern
 
         _check_pattern(self.text)
         path_part, sep, query_part = self.text.partition("?")
@@ -482,13 +482,13 @@ class AllowPattern:
 
 @dataclass
 class WriteBlock:
-    """Fakes and records writes for one browser Theseus owns."""
+    """Fakes and records writes for one browser Knarr owns."""
 
     policy: WritePolicy = field(default_factory=WritePolicy)
     sink_path: Optional[Path] = None
     captured: List[Dict[str, Any]] = field(default_factory=list)
-    # The DevTools endpoint of the user's Chrome (THESEUS_CDP_URL). When set, no
-    # request from Theseus's browser reaches it, whatever the write policy.
+    # The DevTools endpoint of the user's Chrome (KNARR_CDP_URL). When set, no
+    # request from Knarr's browser reaches it, whatever the write policy.
     devtools_url: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -532,7 +532,7 @@ class WriteBlock:
         ``dry_run`` is true when writes were intercepted and none went out:
         no request that could change data was sent, as far as the block can
         see (``write_block_gaps`` lists what it can't). It is false after a
-        request let through by ``THESEUS_WRITE_ALLOW``, and when nothing was
+        request let through by ``KNARR_WRITE_ALLOW``, and when nothing was
         intercepted, in which case the counts are ``None`` (not observed,
         not zero).
         """
@@ -549,7 +549,7 @@ class WriteBlock:
         }
 
     def is_blocked_document(self, url: str, title: Any) -> bool:
-        """Whether the page showing ``url`` is the "Blocked by Theseus" page of
+        """Whether the page showing ``url`` is the "Blocked by Knarr" page of
         a faked form post; a later normal visit to the same URL isn't.
         ``title`` is called only for a URL that had a blocked post."""
         bare = _bare(url)
@@ -558,7 +558,7 @@ class WriteBlock:
     # -- installation ------------------------------------------------------
 
     def install(self, browser: Any, context: Any) -> None:
-        """Intercept every request in a browser Theseus launched, and route
+        """Intercept every request in a browser Knarr launched, and route
         page WebSockets of its context. Call before opening pages.
 
         With writes allowed, only requests to the DevTools endpoint (if there
@@ -641,7 +641,7 @@ class WriteBlock:
             entry.update(describe_body(body, headers.get("content-type"), self.policy.record_fields))
             if body is not None and len(body) > LARGE_BODY_BYTES:
                 self._note_gap(f"a request body over {LARGE_BODY_BYTES // 1_000_000} MB was held back; "
-                               "large bodies make Theseus slow and use a lot of memory")
+                               "large bodies make Knarr slow and use a lot of memory")
         except Exception:
             entry = {"method": method, "url": record_url(url), "body_kind": "unreadable"}
         entry.update({"resource_type": str(event.get("resourceType", "")).lower(),
@@ -726,11 +726,11 @@ class WriteBlock:
             self._cdp.send("Fetch.fulfillRequest", {
                 "requestId": request_id, "responseCode": 403,
                 "responseHeaders": [{"name": "Content-Type", "value": "text/plain"}],
-                "body": base64.b64encode(b"Blocked by Theseus: this is your Chrome's DevTools endpoint.").decode(),
+                "body": base64.b64encode(b"Blocked by Knarr: this is your Chrome's DevTools endpoint.").decode(),
             })
         finally:
             self._record(entry)
-            self._note_gap("a page tried to reach your Chrome's DevTools endpoint; Theseus refused the request")
+            self._note_gap("a page tried to reach your Chrome's DevTools endpoint; Knarr refused the request")
 
     def _fulfill(self, request_id: Any, body: bytes, content_type: str, origin: Optional[str]) -> None:
         headers = [{"name": "Content-Type", "value": content_type}]
@@ -797,13 +797,13 @@ class WriteBlock:
             return
         if asked:
             self._note_gap("a site asked Chrome to send it reports (Report-To, Reporting-Endpoints or NEL); "
-                           "the browser sends those uploads itself, so Theseus can't hold them back")
+                           "the browser sends those uploads itself, so Knarr can't hold them back")
 
     def _worker_started(self, worker: Any) -> None:
         self._note_gap("a page started a Web Worker; WebSocket and WebTransport messages it sends are not blocked")
 
     def _frame_attached(self, frame: Any) -> None:
-        """Note a frame that Chrome may give none of Theseus's page script: a
+        """Note a frame that Chrome may give none of Knarr's page script: a
         sandboxed ``srcdoc`` frame without ``allow-same-origin``."""
         try:
             element = frame.frame_element()
@@ -812,7 +812,7 @@ class WriteBlock:
             return  # detached already, or in another process: nothing to tell
         if sandbox is not None and srcdoc is not None and "allow-same-origin" not in sandbox.split():
             self._note_gap("a page embedded a sandboxed frame (srcdoc without allow-same-origin) that Chrome "
-                           "may give none of Theseus's page script; WebSocket and WebTransport messages "
+                           "may give none of Knarr's page script; WebSocket and WebTransport messages "
                            "it sends may not be blocked")
 
     def _note_gap(self, gap: str) -> None:

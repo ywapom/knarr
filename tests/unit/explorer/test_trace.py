@@ -1,4 +1,4 @@
-"""Unit tests for theseus/explorer/trace.py.
+"""Unit tests for knarr/explorer/trace.py.
 
 Append order, fail-safe semantics, cyclic-payload swallow."""
 
@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from theseus.explorer.trace import (
+from knarr.explorer.trace import (
     RunSummary,
     SummaryWriter,
     TraceWriter,
@@ -294,7 +294,7 @@ def test_the_summary_keeps_credentials_in_urls_out_of_the_file(tmp_path: Path):
 def test_the_user_is_the_login_name_or_unknown(monkeypatch):
     import getpass
 
-    from theseus.explorer.trace import run_user
+    from knarr.explorer.trace import run_user
 
     assert run_user() == getpass.getuser()
     monkeypatch.setattr(getpass, "getuser", lambda: (_ for _ in ()).throw(KeyError("no passwd entry")))

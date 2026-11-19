@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest tests/unit -q
+
+  browser:
+    name: Browser tests (locked versions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install -r requirements.lock
+          python -m pip install --no-deps -e . pytest
+          python -m playwright install --with-deps chromium
+      - name: Let Chromium's sandbox start (Ubuntu 24.04 restricts user namespaces)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: python -m pytest tests -q
+        env:
+          KNARR_BROWSER_TESTS: "1"
+
+  latest-playwright:
+    # Knarr uses Playwright's private Page._sync; catch a release that changes it early.
+    name: Browser tests (newest Playwright in range)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: |
+          python -m pip install --upgrade -e ".[dev]"
+          python -m playwright install --with-deps chromium
+      - name: Let Chromium's sandbox start (Ubuntu 24.04 restricts user namespaces)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: python -m pytest tests -q
+        env:
+          KNARR_BROWSER_TESTS: "1"

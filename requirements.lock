@@ -1,4 +1,4 @@
-# The versions Theseus was tested with: everything `pip install` resolves for the
+# The versions Knarr was tested with: everything `pip install` resolves for the
 # dependencies in pyproject.toml on macOS (arm64) with Python 3.12, on 2026-10-27.
 # The whole test suite, including the real-browser and stdio tests, passed on
 # exactly these (Chrome channel).

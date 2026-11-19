@@ -3,7 +3,7 @@
 A local site offers every write path (fetch, XHR, sendBeacon, a form post, a
 cross-origin iframe, a WebSocket send, a service worker that forwards a
 request, popups). The test server records every request that reaches it, so
-"blocked" means the server never saw it. Opt-in: THESEUS_BROWSER_TESTS=1.
+"blocked" means the server never saw it. Opt-in: KNARR_BROWSER_TESTS=1.
 """
 
 from __future__ import annotations
@@ -301,14 +301,14 @@ def test_launched_browser_blocks_every_write_path(site, tmp_path):
     assert "Writes are blocked" in started
     assert "blocked" in clicked and "nothing was saved" in clicked, clicked
     assert "blocked 1 write(s), not sent: POST /api/form" in form, form
-    assert "Blocked by Theseus" in page
+    assert "Blocked by Knarr" in page
     captured = _check_blocked(site, summary)
     form_post = next(c for c in captured if c["url"].endswith("/api/form"))
     assert form_post["navigation"] is True and form_post["body_fields"] == ["password"]
     assert "hunter2" not in json.dumps(captured)
 
 
-def test_new_tabs_open_in_theseus_context_and_their_writes_are_blocked(site, tmp_path):
+def test_new_tabs_open_in_knarr_context_and_their_writes_are_blocked(site, tmp_path):
     env = _server_env(tmp_path)
     controls = ("Popup link", "Open window", "Detached link", "Shadow link", "Form in new tab", "Button new tab")
 
@@ -368,7 +368,7 @@ def test_the_page_keeps_loading_between_tool_calls(site, tmp_path):
 
 def test_allow_writes_lets_everything_through(site, tmp_path):
     async def scenario():
-        async with _client(_server_env(tmp_path, THESEUS_ALLOW_WRITES="1"), tmp_path) as client:
+        async with _client(_server_env(tmp_path, KNARR_ALLOW_WRITES="1"), tmp_path) as client:
             return await _run_writes(client, site.a + "/")
 
     started, clicked, _, _, summary = asyncio.run(scenario())
@@ -380,7 +380,7 @@ def test_allow_writes_lets_everything_through(site, tmp_path):
 
 
 def test_allow_patterns_let_named_requests_through(site, tmp_path):
-    env = _server_env(tmp_path, THESEUS_WRITE_ALLOW="**/api/fetch-post")
+    env = _server_env(tmp_path, KNARR_WRITE_ALLOW="**/api/fetch-post")
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -392,7 +392,7 @@ def test_allow_patterns_let_named_requests_through(site, tmp_path):
     sent = [c for c in captured if c.get("allowed")]
     assert [urlsplit(c["url"]).path for c in sent] == ["/api/fetch-post"]
     assert any(c["url"].endswith("/api/xhr-put") and not c.get("allowed") for c in captured)
-    assert "sent 1 write(s) allowed by THESEUS_WRITE_ALLOW: POST /api/fetch-post" in clicked
+    assert "sent 1 write(s) allowed by KNARR_WRITE_ALLOW: POST /api/fetch-post" in clicked
     # One write really went out, so this is not a dry run; everything else was faked.
     assert summary["extra"]["dry_run"] is False and summary["extra"]["allowed_writes"] == 1
     assert summary["extra"]["blocked_writes"] >= 1
@@ -433,14 +433,14 @@ def test_plain_text_form_values_are_never_recorded(site, tmp_path):
 def test_attach_copies_the_sites_login_from_the_users_open_tab(site, tmp_path, throwaway_chrome):
     from playwright.sync_api import sync_playwright
 
-    # The user logged in before Theseus connected, and the tab is still open.
+    # The user logged in before Knarr connected, and the tab is still open.
     with sync_playwright() as pw:
         browser = pw.chromium.connect_over_cdp(throwaway_chrome)
         context = browser.contexts[0]
         context.new_page().goto(site.a + "/login")
         context.add_cookies([{"name": "bank", "value": "bank-secret", "domain": "bank.example.org", "path": "/"}])
 
-    env = _server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome, THESEUS_TRACE="1")
+    env = _server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome, KNARR_TRACE="1")
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -454,7 +454,7 @@ def test_attach_copies_the_sites_login_from_the_users_open_tab(site, tmp_path, t
     assert f"1 cookie(s) for {site.a} and its localStorage" in started, started
     assert "token: present" in page, page
     trace = Path(summary["run_dir"]) / "trace.zip"
-    assert trace.is_file()  # only because THESEUS_TRACE=1
+    assert trace.is_file()  # only because KNARR_TRACE=1
     import zipfile
     with zipfile.ZipFile(trace) as z:
         content = b"".join(z.read(n) for n in z.namelist())
@@ -487,8 +487,8 @@ def test_unload_beacons_and_keepalive_are_blocked(site, tmp_path, channel):
         with sync_playwright() as pw:
             if not os.path.exists(pw.chromium.executable_path):
                 pytest.skip("Playwright's bundled Chromium isn't installed")
-    env = _server_env(tmp_path, **({"THESEUS_BROWSER_CHANNEL": channel} if channel else {}))
-    env.pop("THESEUS_BROWSER_CHANNEL", None) if not channel else None
+    env = _server_env(tmp_path, **({"KNARR_BROWSER_CHANNEL": channel} if channel else {}))
+    env.pop("KNARR_BROWSER_CHANNEL", None) if not channel else None
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -537,7 +537,7 @@ def test_bodies_without_a_real_parser_record_kind_and_size_only(site, tmp_path):
 
 
 def test_an_allowed_websocket_carries_its_messages(site, tmp_path):
-    env = _server_env(tmp_path, THESEUS_WRITE_ALLOW=f"ws://127.0.0.1:{site.port_ws}/live")
+    env = _server_env(tmp_path, KNARR_WRITE_ALLOW=f"ws://127.0.0.1:{site.port_ws}/live")
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -568,7 +568,7 @@ def test_a_blocked_cross_origin_save_looks_successful_to_the_page(site, tmp_path
     assert (site.port_b, "POST", "/api/xo") not in site.writes()
 
 
-def test_a_service_worker_cannot_register_in_theseus_browser(site, tmp_path):
+def test_a_service_worker_cannot_register_in_knarr_browser(site, tmp_path):
     async def scenario():
         async with _client(_server_env(tmp_path), tmp_path) as client:
             await client.call_tool("session_start", {"start_url": site.a + "/register", "success_criterion": CRITERION})
@@ -602,7 +602,7 @@ def test_a_dialog_in_the_users_tab_does_not_hang_the_borrow_and_stays_open(site,
     time.sleep(0.5)  # the user's tab now shows a dialog
 
     async def scenario():
-        async with _client(_server_env(tmp_path, THESEUS_CDP_URL=throwaway_chrome), tmp_path) as client:
+        async with _client(_server_env(tmp_path, KNARR_CDP_URL=throwaway_chrome), tmp_path) as client:
             started = _text(await asyncio.wait_for(client.call_tool(
                 "session_start", {"start_url": site.a + "/", "success_criterion": CRITERION}), timeout=30))
             await client.call_tool("session_end", {})
@@ -612,7 +612,7 @@ def test_a_dialog_in_the_users_tab_does_not_hang_the_borrow_and_stays_open(site,
     assert started.startswith("Session started"), started
     assert "didn't answer, maybe a dialog is open" in started, started
     # The dialog is still there for the user: the tab still can't answer.
-    from theseus.explorer.borrow import _call
+    from knarr.explorer.borrow import _call
 
     assert _call(tab["webSocketDebuggerUrl"], "Runtime.evaluate", {"expression": "1"}, timeout=1.0) is None
 
@@ -682,7 +682,7 @@ def test_text_on_the_blocked_page_never_counts_as_success(site, tmp_path):
             return page, asserted, waited, status
 
     page, asserted, waited, status = asyncio.run(scenario())
-    assert "Blocked by Theseus" in page
+    assert "Blocked by Knarr" in page
     assert asserted.startswith("not_matched") and "stand-in for a form post" in asserted, asserted
     assert "stand-in for a form post" in waited and "appeared" not in waited, waited
     assert status["success_asserted"] is False and status["ended"] is False
@@ -699,18 +699,18 @@ def test_a_blocked_sign_in_handoff_is_explained_and_allowing_it_signs_in(site, t
             return started, page, moved
 
     started, page, moved = asyncio.run(scenario())
-    assert "stand-in for a form post it blocked" in started and "THESEUS_WRITE_ALLOW" in started, started
-    assert "Blocked by Theseus" in page
+    assert "stand-in for a form post it blocked" in started and "KNARR_WRITE_ALLOW" in started, started
+    assert "Blocked by Knarr" in page
     assert moved.startswith(f"navigated: {site.a}/home"), moved  # the blocked page didn't become the way back
     assert (site.port_a, "POST", "/acs") not in site.writes()
 
-    started, page, _ = asyncio.run(scenario(THESEUS_WRITE_ALLOW="**/acs"))
+    started, page, _ = asyncio.run(scenario(KNARR_WRITE_ALLOW="**/acs"))
     assert "stand-in" not in started and "Dashboard" in page, (started, page)
     assert (site.port_a, "POST", "/acs") in site.writes()
 
 
 def test_aborted_allowed_requests_are_not_counted_as_sent(site, tmp_path):
-    env = _server_env(tmp_path, THESEUS_WRITE_ALLOW="**/api/typeahead")
+    env = _server_env(tmp_path, KNARR_WRITE_ALLOW="**/api/typeahead")
 
     async def scenario():
         async with _client(env, tmp_path) as client:
@@ -761,7 +761,7 @@ def test_a_blocked_socket_does_not_pass_the_pages_close_code_to_the_server(site,
     assert code != 4001 and reason != "page-chosen-reason", (code, reason)
 
     site.ws_closes.clear()
-    asyncio.run(scenario(THESEUS_WRITE_ALLOW=f"ws://127.0.0.1:{site.port_ws}/chat"))
+    asyncio.run(scenario(KNARR_WRITE_ALLOW=f"ws://127.0.0.1:{site.port_ws}/chat"))
     [(path, code, reason)] = [c for c in site.ws_closes if c[0] == "/chat"]
     assert (code, reason) == (4001, "page-chosen-reason")  # an allowed socket carries it
 
@@ -851,7 +851,7 @@ def test_a_link_hidden_under_a_fixed_header_is_clicked_in_seconds_with_a_note(si
             return clicked, took, landed
 
     clicked, took, landed = asyncio.run(scenario())
-    assert clicked.startswith("clicked") and "another element covered it, so Theseus sent the click to it directly" in clicked
+    assert clicked.startswith("clicked") and "another element covered it, so Knarr sent the click to it directly" in clicked
     assert took < 4.5 and "Landed" in landed, (took, landed)
 
 

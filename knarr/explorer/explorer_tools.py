@@ -1,4 +1,4 @@
-"""Theseus tool palette: navigation, observation and action tools, the
+"""Knarr tool palette: navigation, observation and action tools, the
 guards around them, and 2 scaffold annotators.
 
 The surface:
@@ -40,8 +40,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 
-from theseus.explorer.origin import normalize_url
-from theseus.explorer.trace import TraceWriter
+from knarr.explorer.origin import normalize_url
+from knarr.explorer.trace import TraceWriter
 
 
 # ============================================================================
@@ -197,7 +197,7 @@ DEFAULT_EXPLORE_FORBIDDEN: tuple = (
 
 @dataclass
 class ExplorerContext:
-    """Mutable per-run state shared across the 6 Theseus tools.
+    """Mutable per-run state shared across the 6 Knarr tools.
 
     Every tool closes over this object so invocations write back into
     one place. The runner reads ``terminal_reason`` after each tool
@@ -239,7 +239,7 @@ class ExplorerContext:
     # page (the MCP server grades against a fixed criterion). The runner
     # keeps the original any-phrase check.
     assert_all_phrases: bool = False
-    # Tells whether the page now showing is Theseus's own "Blocked" stand-in
+    # Tells whether the page now showing is Knarr's own "Blocked" stand-in
     # for a form post (the MCP session sets it). Text on that page is never
     # evidence that a goal was reached: the site never answered.
     stand_in_page: Optional[Callable[[], bool]] = None
@@ -296,9 +296,9 @@ class IndexedElement:
     Ported from browser-use's core idea: instead of asking the model to
     guess a text/selector for every click, ``read_page`` enumerates the
     visible interactive elements, assigns each a 0-based ``index``, and
-    stamps ``data-theseus-index=<index>`` onto the live DOM node. The
+    stamps ``data-knarr-index=<index>`` onto the live DOM node. The
     model then calls ``click_index(3)`` and the tool resolves the exact
-    same node via ``[data-theseus-index="3"]`` — zero selector guessing.
+    same node via ``[data-knarr-index="3"]`` — zero selector guessing.
 
     ``kind`` is a coarse bucket (button / link / input / tab / menuitem /
     checkbox / radio / other) so the render reads naturally. ``text`` is
@@ -321,7 +321,7 @@ class IndexedElement:
 class PageSummary:
     """Structured view of the current page, capped to a budget.
 
-    Theseus consumes a lot of tokens; this summary intentionally drops
+    Knarr consumes a lot of tokens; this summary intentionally drops
     the raw DOM and keeps only the facets Claude needs to navigate the
     UI: visible button/input/link labels, headings, modal text, any
     currently-open menus (Portal-rendered dropdowns), and any inline
@@ -406,11 +406,11 @@ PAGE_SUMMARY_BUDGET_CHARS = 10_000
 def build_explorer_functions(
     context: ExplorerContext,
 ) -> List[Callable[..., str]]:
-    """Build the Theseus tool palette as plain functions.
+    """Build the Knarr tool palette as plain functions.
 
     Returns a fresh list per call; each function closes over ``context``
     so invocations route through one mutable bag of state. Callers wrap
-    them for their transport: ``theseus.mcp`` for MCP, or a runner's own
+    them for their transport: ``knarr.mcp`` for MCP, or a runner's own
     tool wrapper.
 
     When ``context.scaffold_mode=False`` the two ``record_*`` tools are
@@ -677,7 +677,7 @@ def build_explorer_functions(
 
         ``read_page`` enumerates the visible interactive elements, prints
         them as ``[3] button 'Add to Cart'``, and stamps each live DOM node
-        with ``data-theseus-index``. Pass that integer here and the tool
+        with ``data-knarr-index``. Pass that integer here and the tool
         clicks the exact node — no text or selector guessing, which is the
         main failure mode of fuzzy ``click`` on selector-fragile sites.
 
@@ -735,14 +735,14 @@ def build_explorer_functions(
             "rejected: ..." / "submit_failed: ...".
         """
         page = context.page
-        if hasattr(page, "_theseus_submit"):
+        if hasattr(page, "_knarr_submit"):
             return _execute_action(
                 context,
                 tool_name="submit",
                 args={},
                 text_for_denial=None,
                 simulator=lambda: {"would_have": {"verbs_tried": list(SUBMIT_VERBS)}},
-                real=lambda: dict(page._theseus_submit()),
+                real=lambda: dict(page._knarr_submit()),
                 success_prefix="submitted",
             )
         found = _find_submit_button(page)
@@ -816,7 +816,7 @@ def build_explorer_functions(
         and terminates. Scaffold mode also calls it but
         defers the final verdict to the dotted-path validator.
 
-        Implementation is duck-typed via ``_theseus_assert_state``; in
+        Implementation is duck-typed via ``_knarr_assert_state``; in
         production this is a deterministic check (DOM landmarks, URL
         pattern, content presence). Claude does *not* grade its own
         run — the verdict is computed by the page-side helper.
@@ -1167,7 +1167,7 @@ def _persist_learned_controls(
         return
 
     try:
-        from theseus.explorer import learned_controls as lc
+        from knarr.explorer import learned_controls as lc
     except Exception:
         return
 
@@ -1234,7 +1234,7 @@ def _scaffold_annotator_functions(context: ExplorerContext) -> List[Callable[...
 
         @param method_param(str): The page-object method parameter
             (e.g. "name").
-        @param value(str): The literal value used (e.g. "theseus-offer-1").
+        @param value(str): The literal value used (e.g. "knarr-test-1").
         @param source(str): What UI element this came from (e.g.
             "input labeled 'Offer name'").
         @return (str): "recorded".
@@ -1391,8 +1391,8 @@ _PAGE_STATE_JS = """
 
   // ---- Indexed interactive elements (browser-use-style click-by-index) --
   // Number each visible interactive element in document order and stamp
-  // data-theseus-index onto the live node so click_index(n) resolves the
-  // SAME element via [data-theseus-index="n"] without selector guessing.
+  // data-knarr-index onto the live node so click_index(n) resolves the
+  // SAME element via [data-knarr-index="n"] without selector guessing.
   // Indexes are only valid until the next navigation/DOM mutation — the
   // agent must read_page() again before clicking, same contract as
   // browser-use's selector map.
@@ -1412,7 +1412,7 @@ _PAGE_STATE_JS = """
     // disambiguate.
     let anc = el.parentElement, nested = false;
     while (anc && anc !== document.body) {
-      if (anc.hasAttribute && anc.hasAttribute('data-theseus-index')) { nested = true; break; }
+      if (anc.hasAttribute && anc.hasAttribute('data-knarr-index')) { nested = true; break; }
       anc = anc.parentElement;
     }
     if (nested) continue;
@@ -1428,7 +1428,7 @@ _PAGE_STATE_JS = """
     const label = (kind === 'input') ? inputLabel(el) : '';
     const text = textOf(el) || label;
     if (!text && !label) continue;   // anonymous / icon-only with no label
-    el.setAttribute('data-theseus-index', String(elIndex));
+    el.setAttribute('data-knarr-index', String(elIndex));
     elements.push({ index: elIndex, kind: kind, tag: tag, text: text, label: label });
     elIndex++;
   }
@@ -1723,7 +1723,7 @@ def _capture_via_evaluate(page: Any) -> Optional[Dict[str, Any]]:
         another MagicMock — we filter that out so the fallback fires).
 
     A ``None`` return is the caller's signal to fall back to the
-    ``_theseus_visible_*`` fixture-attribute path.
+    ``_knarr_visible_*`` fixture-attribute path.
     """
     evaluate = getattr(page, "evaluate", None)
     if not callable(evaluate):
@@ -1738,7 +1738,7 @@ def _capture_via_evaluate(page: Any) -> Optional[Dict[str, Any]]:
 
 
 def _capture_via_fixture_attrs(page: Any) -> Dict[str, Any]:
-    """Read ``_theseus_visible_*`` attributes off the page object.
+    """Read ``_knarr_visible_*`` attributes off the page object.
 
     The test seam. Production runs never hit this path because the
     evaluate result is a real dict; test fixtures set these attributes
@@ -1757,14 +1757,14 @@ def _capture_via_fixture_attrs(page: Any) -> Dict[str, Any]:
     return {
         "url": url,
         "title": title,
-        "buttons": list(_safe_list(page, "_theseus_visible_buttons", default=())),
-        "links": list(_safe_list(page, "_theseus_visible_links", default=())),
-        "inputs": list(_safe_list(page, "_theseus_visible_input_labels", default=())),
-        "headings": list(_safe_list(page, "_theseus_visible_headings", default=())),
-        "open_menus": list(_safe_list(page, "_theseus_open_menus", default=())),
-        "field_errors": list(_safe_list(page, "_theseus_field_errors", default=())),
-        "modal_text": _safe_attr(page, "_theseus_modal_text", default=None),
-        "elements": list(_safe_list(page, "_theseus_elements", default=())),
+        "buttons": list(_safe_list(page, "_knarr_visible_buttons", default=())),
+        "links": list(_safe_list(page, "_knarr_visible_links", default=())),
+        "inputs": list(_safe_list(page, "_knarr_visible_input_labels", default=())),
+        "headings": list(_safe_list(page, "_knarr_visible_headings", default=())),
+        "open_menus": list(_safe_list(page, "_knarr_open_menus", default=())),
+        "field_errors": list(_safe_list(page, "_knarr_field_errors", default=())),
+        "modal_text": _safe_attr(page, "_knarr_modal_text", default=None),
+        "elements": list(_safe_list(page, "_knarr_elements", default=())),
     }
 
 
@@ -1775,7 +1775,7 @@ def _capture_page_summary(page: Any) -> PageSummary:
       1. Try ``page.evaluate(_PAGE_STATE_JS)`` — production path. Runs
          inside the page context so it can see Portal-rendered nodes
          (open menus, modals) attached to ``document.body``.
-      2. Fall back to ``_theseus_visible_*`` attributes — test seam.
+      2. Fall back to ``_knarr_visible_*`` attributes — test seam.
 
     The shapes here line up with what Playwright pages expose, but we
     don't import Playwright — every call is duck-typed and falls back
@@ -1873,7 +1873,7 @@ def _safe_call(obj: Any, name: str, *args: Any, default: Any) -> Any:
 # ============================================================================
 # Action-tool helpers — duck-typed page interactions.
 #
-# Tests register ``_theseus_*`` methods on the page object so the same
+# Tests register ``_knarr_*`` methods on the page object so the same
 # tool body works without importing Playwright. Production code paths
 # fall through to Playwright primitives (``page.get_by_text``, etc.) —
 # wired up by the explorer runner when a real session is in play.
@@ -1987,7 +1987,7 @@ CLICK_CHAIN_POLL_MS = 100
 
 
 STAND_IN_EVIDENCE = (
-    "this page is Theseus's stand-in for a form post it blocked, not the site's own response: "
+    "this page is Knarr's stand-in for a form post it blocked, not the site's own response: "
     "the site never answered, so nothing on it shows the goal was reached"
 )
 
@@ -2057,7 +2057,7 @@ def _find_first_visible(
 def _click_target(page: Any, target: str) -> Dict[str, Any]:
     """Fuzzy click adapter.
 
-    Test pages register ``_theseus_click(target) -> dict``. Production
+    Test pages register ``_knarr_click(target) -> dict``. Production
     runs build a candidate-selector chain — data-testid, role-button,
     text-content, role-link — and walk it with ``_find_first_visible``
     so the first visible match wins. ``fallback_used`` is True iff the
@@ -2069,8 +2069,8 @@ def _click_target(page: Any, target: str) -> Dict[str, Any]:
     ``get_by_text("")`` match every element, so it would click whatever
     button happens to come first.
     """
-    if hasattr(page, "_theseus_click"):
-        return dict(page._theseus_click(target))
+    if hasattr(page, "_knarr_click"):
+        return dict(page._knarr_click(target))
     if not str(target or "").strip():
         return {"success": False, "error": "empty click target"}
     selectors = _generate_click_selectors(target)
@@ -2100,9 +2100,9 @@ def _click_target(page: Any, target: str) -> Dict[str, Any]:
 
 
 def _click_index(page: Any, index: int) -> Dict[str, Any]:
-    """Click the element stamped with ``data-theseus-index=<index>``.
+    """Click the element stamped with ``data-knarr-index=<index>``.
 
-    Test pages register ``_theseus_click_index(index) -> dict``. Production
+    Test pages register ``_knarr_click_index(index) -> dict``. Production
     resolves the attribute selector that the last ``read_page`` evaluate
     pass stamped onto the node and clicks the first match. A miss (stale
     index after a navigation, or a mutated DOM) surfaces as a failed
@@ -2112,9 +2112,9 @@ def _click_index(page: Any, index: int) -> Dict[str, Any]:
     resolution, never a fuzzy fallback, so the pattern miner shouldn't
     count it as selector fragility.
     """
-    if hasattr(page, "_theseus_click_index"):
-        return dict(page._theseus_click_index(index))
-    selector = f'[data-theseus-index="{index}"]'
+    if hasattr(page, "_knarr_click_index"):
+        return dict(page._knarr_click_index(index))
+    selector = f'[data-knarr-index="{index}"]'
     try:
         locator = page.locator(selector)
         note = _click_recovering(locator.first, timeout=5000)
@@ -2176,7 +2176,7 @@ def _reveal_error(page: Any, target: str) -> Dict[str, Any]:
     """Click an error indicator and capture the detail it reveals.
 
     Same duck-typed pattern as ``_click_target``. Test pages register
-    ``_theseus_inspect_error(target) -> dict`` returning the full outcome
+    ``_knarr_inspect_error(target) -> dict`` returning the full outcome
     (``clicked`` / ``clicked_label`` / ``candidates`` / ``revealed_text``).
 
     Production runs a two-pass evaluate: ``_REVEAL_CLICK_JS`` finds and
@@ -2185,8 +2185,8 @@ def _reveal_error(page: Any, target: str) -> Dict[str, Any]:
     click is treated as an *inspection* (like read_page), not a mutation:
     revealing an error panel has no durable side effect.
     """
-    if hasattr(page, "_theseus_inspect_error"):
-        return dict(page._theseus_inspect_error(target))
+    if hasattr(page, "_knarr_inspect_error"):
+        return dict(page._knarr_inspect_error(target))
 
     evaluate = getattr(page, "evaluate", None)
     if not callable(evaluate):
@@ -2284,11 +2284,11 @@ def _fill_field(page: Any, label: str, value: str) -> Dict[str, Any]:
     """Fill-by-label adapter.
 
     Same duck-typed pattern as ``_click_target``. Tests register
-    ``_theseus_fill(label, value) -> dict``; production tries
+    ``_knarr_fill(label, value) -> dict``; production tries
     Playwright's ``get_by_label`` then falls back.
     """
-    if hasattr(page, "_theseus_fill"):
-        return dict(page._theseus_fill(label, value))
+    if hasattr(page, "_knarr_fill"):
+        return dict(page._knarr_fill(label, value))
     try:
         locator = page.get_by_label(label, exact=False)
         locator.first.fill(value)
@@ -2341,7 +2341,7 @@ def _short_error(error: Any, limit: int = MAX_ERROR_CHARS) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "..."
 
 
-COVERED_CLICK_NOTE = "another element covered it, so Theseus sent the click to it directly"
+COVERED_CLICK_NOTE = "another element covered it, so Knarr sent the click to it directly"
 _COVERED_PROBE_MS = 2500
 
 
@@ -2377,15 +2377,15 @@ def _click_submit_button(locator: Any, name: str) -> Dict[str, Any]:
 def _wait_for(page: Any, description: str, stand_in: Optional[Callable[[], bool]] = None) -> Dict[str, Any]:
     """Natural-language wait adapter.
 
-    Test pages register ``_theseus_wait_for(description) -> dict``.
+    Test pages register ``_knarr_wait_for(description) -> dict``.
     Production waits for any quoted phrase in the description to become
     visible; with no quotes it waits for ``networkidle`` (no in-flight
     requests for ~500ms), the usual "has the page settled" signal after a
     click. The result says which happened, so a settle is never reported
     as a text match.
     """
-    if hasattr(page, "_theseus_wait_for"):
-        return dict(page._theseus_wait_for(description))
+    if hasattr(page, "_knarr_wait_for"):
+        return dict(page._knarr_wait_for(description))
     start_ms = int(time.time() * 1000)
     phrases = _quoted_phrases(description or "")
     if phrases:
@@ -2395,7 +2395,7 @@ def _wait_for(page: Any, description: str, stand_in: Optional[Callable[[], bool]
                 try:
                     if page.get_by_text(phrase, exact=False).first.is_visible():
                         elapsed = int(time.time() * 1000) - start_ms
-                        if _quiet_true(stand_in):  # the words are Theseus's own: the site never answered
+                        if _quiet_true(stand_in):  # the words are Knarr's own: the site never answered
                             return {"success": False, "matched_at_ms": elapsed, "error": STAND_IN_EVIDENCE}
                         return {"success": True, "matched": phrase, "matched_at_ms": elapsed}
                 except Exception:
@@ -2423,7 +2423,7 @@ def _wait_for(page: Any, description: str, stand_in: Optional[Callable[[], bool]
 
 def _assert_state(page: Any, description: str, require_all: bool = False,
                   stand_in: Optional[Callable[[], bool]] = None) -> Dict[str, Any]:
-    """The state assertion, never satisfied by text on Theseus's own stand-in page.
+    """The state assertion, never satisfied by text on Knarr's own stand-in page.
 
     ``stand_in`` is asked after the page text was read, so it speaks for the
     page that produced the match."""
@@ -2436,7 +2436,7 @@ def _assert_state(page: Any, description: str, require_all: bool = False,
 def _assert_state_text(page: Any, description: str, require_all: bool = False) -> Dict[str, Any]:
     """State-assertion adapter.
 
-    Test pages register ``_theseus_assert_state(description) -> dict``
+    Test pages register ``_knarr_assert_state(description) -> dict``
     with ``{matches: bool, evidence: str}``. Production paths run a
     deterministic check against the page's visible text: extract
     quoted phrases from the description (or fall back to the whole
@@ -2448,8 +2448,8 @@ def _assert_state_text(page: Any, description: str, require_all: bool = False) -
     checks belong in a validator that runs after the session and checks
     the result independently of the agent.
     """
-    if hasattr(page, "_theseus_assert_state"):
-        return dict(page._theseus_assert_state(description))
+    if hasattr(page, "_knarr_assert_state"):
+        return dict(page._knarr_assert_state(description))
     phrases = _extract_assert_phrases(description)
     try:
         body = page.locator("body").inner_text(timeout=ASSERT_STATE_TIMEOUT_MS)
@@ -2488,8 +2488,8 @@ def _assert_state_text(page: Any, description: str, require_all: bool = False) -
 def _extract_assert_phrases(description: str) -> List[str]:
     """Pull quoted phrases out of an assert_state description.
 
-    A criterion like ``Offer named 'theseus-1' appears in the offers
-    list`` returns ``['theseus-1']`` — the quoted bit is the
+    A criterion like ``Offer named 'knarr-1' appears in the offers
+    list`` returns ``['knarr-1']`` — the quoted bit is the
     operator's signal of "this is the specific thing to check for."
     When the description carries no quotes, the entire description
     is the only candidate phrase; that's the conservative fallback.

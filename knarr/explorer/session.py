@@ -1,19 +1,19 @@
-"""Default browser session for Theseus: plain Playwright, no site login.
+"""Default browser session for Knarr: plain Playwright, no site login.
 
-Theseus always runs its own browser: Playwright's bundled Chromium, or an
-installed browser named by ``THESEUS_BROWSER_CHANNEL`` (e.g. ``chrome``), with
-a fresh temporary profile and Chromium's sandbox on (``THESEUS_NO_SANDBOX=1``
+Knarr always runs its own browser: Playwright's bundled Chromium, or an
+installed browser named by ``KNARR_BROWSER_CHANNEL`` (e.g. ``chrome``), with
+a fresh temporary profile and Chromium's sandbox on (``KNARR_NO_SANDBOX=1``
 turns it off, for a container that can't run it). Logging in is the user's
 job; the session can start logged in in one of two ways:
 
-- ``THESEUS_CDP_URL`` (e.g. ``http://127.0.0.1:9222``): borrow the login from a
+- ``KNARR_CDP_URL`` (e.g. ``http://127.0.0.1:9222``): borrow the login from a
   Chrome the user started with ``--remote-debugging-port`` and logged in to
   (``explorer.borrow``): the cookies Chrome would send to the start site and,
   from an open tab on that origin, its localStorage. If the page then moves to
   other origins by itself (an SSO redirect to a sign-in provider), each
   origin's login is borrowed in turn and the start URL is loaded again, up to
   a few times. Playwright never attaches to the user's Chrome.
-- ``THESEUS_STORAGE_STATE``: a Playwright storage-state file.
+- ``KNARR_STORAGE_STATE``: a Playwright storage-state file.
 
 Before it hands the page over, the session waits until the page has stopped
 navigating by itself: until it has loaded (up to a limit), its requests have
@@ -24,10 +24,10 @@ MCP session handles it when it happens (``McpSession._left_by_itself``).
 Each hop of a sign-in chain loads the start URL again, so whatever the page
 does on load happens once per hop.
 
-Because the browser is Theseus's own, the write block
+Because the browser is Knarr's own, the write block
 (``explorer.write_block``) intercepts every request at the browser level.
 
-A Playwright trace (``trace.zip``) is written only with ``THESEUS_TRACE=1``:
+A Playwright trace (``trace.zip``) is written only with ``KNARR_TRACE=1``:
 traces record cookies and request headers, so they hold the session's login.
 """
 
@@ -42,21 +42,21 @@ from types import SimpleNamespace
 from typing import Any, Callable, ContextManager, Dict, Iterator, List, Optional, Set, Tuple
 from urllib.parse import urljoin
 
-from theseus.explorer.borrow import (
+from knarr.explorer.borrow import (
     BorrowError,
     borrow_login,
     devtools_endpoint_error,
     is_devtools_address,
     is_devtools_endpoint,
 )
-from theseus.explorer.origin import normalize_origin
-from theseus.explorer.write_block import CAPTURED_WRITES_FILE, WriteBlock, WritePolicy, env_flag
+from knarr.explorer.origin import normalize_origin
+from knarr.explorer.write_block import CAPTURED_WRITES_FILE, WriteBlock, WritePolicy, env_flag
 
-TRACE_ENV = "THESEUS_TRACE"
-CDP_URL_ENV = "THESEUS_CDP_URL"
-STORAGE_STATE_ENV = "THESEUS_STORAGE_STATE"
-BROWSER_CHANNEL_ENV = "THESEUS_BROWSER_CHANNEL"
-NO_SANDBOX_ENV = "THESEUS_NO_SANDBOX"
+TRACE_ENV = "KNARR_TRACE"
+CDP_URL_ENV = "KNARR_CDP_URL"
+STORAGE_STATE_ENV = "KNARR_STORAGE_STATE"
+BROWSER_CHANNEL_ENV = "KNARR_BROWSER_CHANNEL"
+NO_SANDBOX_ENV = "KNARR_NO_SANDBOX"
 
 DEFAULT_VIEWPORT = {"width": 1600, "height": 1000}
 
@@ -108,8 +108,8 @@ _LOCAL_STORAGE_INIT = """(() => {{
   const [origin, items] = {payload};
   if (location.origin !== origin) return;
   try {{
-    if (sessionStorage.getItem('__theseus_local_storage') === origin) return;
-    sessionStorage.setItem('__theseus_local_storage', origin);
+    if (sessionStorage.getItem('__knarr_local_storage') === origin) return;
+    sessionStorage.setItem('__knarr_local_storage', origin);
   }} catch (e) {{ return; }}
   for (const [k, v] of items) {{
     try {{ localStorage.setItem(k, v); }} catch (e) {{}}
@@ -148,7 +148,7 @@ def _parse_refresh(value: Any, base_url: str) -> Optional[Tuple[float, str]]:
 def _pending_refresh(page: Any, header: Optional[str]) -> Optional[float]:
     """Seconds until the page redirects itself to another origin by ``Refresh``
     header or meta refresh, if that is soon enough to wait for."""
-    from theseus.explorer.origin import normalize_origin as origin_of
+    from knarr.explorer.origin import normalize_origin as origin_of
 
     try:
         meta = page.evaluate("() => { const m = document.querySelector('meta[http-equiv=\"refresh\" i]'); "
@@ -232,7 +232,7 @@ def plain_session(
     channel: Optional[str] = None,
     write_block: Optional[WriteBlock] = None,
 ) -> Iterator[SimpleNamespace]:
-    """Launch Theseus's own browser and open ``starting_url``.
+    """Launch Knarr's own browser and open ``starting_url``.
 
     Yields ``SimpleNamespace(page, context, write_block, trace_path,
     borrowed_login, opened_tabs, follow_sign_in)``. ``borrowed_login`` lists what
@@ -287,7 +287,7 @@ def plain_session(
             options.pop("storage_state", None)  # the borrowed login lives in the browser now
             state = None
             if write_block is not None:
-                write_block.devtools_url = cdp_url  # no request of Theseus's browser reaches your Chrome's debug port
+                write_block.devtools_url = cdp_url  # no request of Knarr's browser reaches your Chrome's debug port
                 write_block.install(browser, context)
             opened: list = []
             context.on("page", lambda tab: opened.append(tab))
@@ -409,8 +409,8 @@ def make_session_factory(
     """A runner ``SessionFactory`` configured from the environment.
 
     Honors ``invocation.headed``. ``trace_dir`` holds the trace (only with
-    ``THESEUS_TRACE=1``) and the captured writes. The runner doesn't block
-    writes unless ``THESEUS_BLOCK_WRITES=1``: blocking pauses the page's
+    ``KNARR_TRACE=1``) and the captured writes. The runner doesn't block
+    writes unless ``KNARR_BLOCK_WRITES=1``: blocking pauses the page's
     network while the model thinks, and a runner can have its own write gates
     (a read-only mode, say).
     """

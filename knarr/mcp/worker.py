@@ -41,7 +41,7 @@ _WAKE = object()  # makes a waiting loop look at the idle function again
 
 
 class BrowserWorker:
-    def __init__(self, name: str = "theseus-browser") -> None:
+    def __init__(self, name: str = "knarr-browser") -> None:
         self._jobs: "queue.Queue[Any]" = queue.Queue()
         self._idle: Optional[Callable[[], None]] = None
         self.idle_errors = 0
@@ -104,7 +104,7 @@ class BrowserWorker:
         self.idle_errors += 1
         self.idle_last_error = f"{type(exc).__name__}: {exc}"
         if self.idle_errors in (1, 10, 100) or self.idle_errors % 1000 == 0:
-            print(f"theseus: the idle pump failed {self.idle_errors} time(s), will retry: {exc!r}", file=sys.stderr)
+            print(f"knarr: the idle pump failed {self.idle_errors} time(s), will retry: {exc!r}", file=sys.stderr)
 
     def submit(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> concurrent.futures.Future:
         if self._closed:

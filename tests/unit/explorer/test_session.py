@@ -1,4 +1,4 @@
-"""Unit tests for theseus/explorer/session.py — the default browser session.
+"""Unit tests for knarr/explorer/session.py — the default browser session.
 
 Playwright is replaced by a fake, so no browser starts.
 """
@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from theseus.explorer import session as session_mod
-from theseus.explorer.borrow import DevToolsEndpointError
-from theseus.explorer.write_block import LAUNCH_ARGS, WriteBlock, WritePolicy
+from knarr.explorer import session as session_mod
+from knarr.explorer.borrow import DevToolsEndpointError
+from knarr.explorer.write_block import LAUNCH_ARGS, WriteBlock, WritePolicy
 
 
 @pytest.fixture(autouse=True)
@@ -75,7 +75,7 @@ def test_storage_state_is_passed_to_the_new_context():
     assert options["storage_state"] == "/tmp/state.json"
 
 
-def test_attach_borrows_the_login_then_launches_theseus_own_browser(monkeypatch):
+def test_attach_borrows_the_login_then_launches_knarr_own_browser(monkeypatch):
     sync_pw, pw, launched, _ = _fake_playwright()
     calls = []
 
@@ -198,8 +198,8 @@ def test_storage_state_from_env(monkeypatch, tmp_path: Path):
 
 def test_make_session_factory_reads_env_and_headed(monkeypatch, tmp_path):
     monkeypatch.setenv(session_mod.CDP_URL_ENV, "http://127.0.0.1:9222")
-    for name in (session_mod.STORAGE_STATE_ENV, session_mod.TRACE_ENV, "THESEUS_ALLOW_WRITES",
-                 "THESEUS_BLOCK_WRITES", "THESEUS_WRITE_ALLOW"):
+    for name in (session_mod.STORAGE_STATE_ENV, session_mod.TRACE_ENV, "KNARR_ALLOW_WRITES",
+                 "KNARR_BLOCK_WRITES", "KNARR_WRITE_ALLOW"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(session_mod.BROWSER_CHANNEL_ENV, " chrome ")
     captured = {}
@@ -217,13 +217,13 @@ def test_make_session_factory_reads_env_and_headed(monkeypatch, tmp_path):
     assert captured == {
         "url": "https://x",
         "headed": True,
-        "trace_dir": None,  # no trace without THESEUS_TRACE=1
+        "trace_dir": None,  # no trace without KNARR_TRACE=1
         "cdp_url": "http://127.0.0.1:9222",
         "storage_state": None,
         "channel": "chrome",
     }
     monkeypatch.setenv(session_mod.TRACE_ENV, "1")
-    monkeypatch.setenv("THESEUS_BLOCK_WRITES", "1")
+    monkeypatch.setenv("KNARR_BLOCK_WRITES", "1")
     session_mod.make_session_factory(trace_dir=tmp_path)("https://x", invocation)
     assert captured["trace_dir"] == tmp_path and captured["write_block"].active
 
@@ -364,7 +364,7 @@ def test_local_storage_of_a_later_origin_is_set_before_its_own_scripts_run():
     assert 'if (location.origin !== origin) return;' in script  # only that origin's frames
     assert '["https://idp.example.net", [["tok", "a\\"b</script>"]]]' in script
     # Once per tab, overwriting what the anonymous first load wrote; never again on later loads.
-    assert "sessionStorage.getItem('__theseus_local_storage') === origin) return;" in script
+    assert "sessionStorage.getItem('__knarr_local_storage') === origin) return;" in script
     assert "localStorage.setItem(k, v)" in script and "getItem(k) === null" not in script
     context.add_cookies.assert_not_called()
 
@@ -399,7 +399,7 @@ def test_the_session_can_follow_a_sign_in_chain_again_later():
 
     page._script = script_once
     with patch("playwright.sync_api.sync_playwright", sync_pw):
-        import theseus.explorer.session as mod
+        import knarr.explorer.session as mod
 
         mod_borrow = mod.borrow_login
         mod.borrow_login = borrow
@@ -466,7 +466,7 @@ def test_a_first_page_that_cannot_open_gets_the_sandbox_hint_unless_the_user_opt
             with pytest.raises(Exception) as err:
                 with session_mod.plain_session("https://example.com/start"):
                     pass
-        assert ("THESEUS_NO_SANDBOX=1" in str(err.value)) is (not opted_out)
+        assert ("KNARR_NO_SANDBOX=1" in str(err.value)) is (not opted_out)
         launched.close.assert_called_once()
 
 
@@ -478,7 +478,7 @@ def test_a_launch_failure_that_mentions_the_sandbox_is_not_dressed_up_after_opti
         with pytest.raises(RuntimeError) as err:
             with session_mod.plain_session("https://example.com/start"):
                 pass
-    assert "set THESEUS_NO_SANDBOX=1" not in str(err.value)
+    assert "set KNARR_NO_SANDBOX=1" not in str(err.value)
 
 
 # -- the DevTools endpoint ------------------------------------------------------------
@@ -534,7 +534,7 @@ def test_a_launch_that_fails_for_the_sandbox_says_how_to_turn_it_off():
     sync_pw, pw, _, _ = _fake_playwright()
     pw.chromium.launch.side_effect = RuntimeError("FATAL: No usable sandbox!")
     with patch("playwright.sync_api.sync_playwright", sync_pw):
-        with pytest.raises(RuntimeError, match="THESEUS_NO_SANDBOX=1"):
+        with pytest.raises(RuntimeError, match="KNARR_NO_SANDBOX=1"):
             with session_mod.plain_session("https://example.com/start"):
                 pass
 
@@ -546,7 +546,7 @@ def test_an_unrelated_launch_failure_is_not_dressed_up():
         with pytest.raises(RuntimeError) as err:
             with session_mod.plain_session("https://example.com/start"):
                 pass
-    assert "THESEUS_NO_SANDBOX" not in str(err.value)
+    assert "KNARR_NO_SANDBOX" not in str(err.value)
 
 
 def test_the_write_block_adds_its_browser_flags_to_the_launch():
@@ -566,7 +566,7 @@ def test_no_flags_without_an_active_write_block():
 # -- closing ----------------------------------------------------------------------------
 
 def test_a_browser_that_is_already_gone_does_not_make_closing_fail():
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     sync_pw, _, launched, _ = _fake_playwright()
     launched.new_context.return_value.close.side_effect = Exception(
@@ -593,8 +593,8 @@ def test_a_real_close_failure_still_closes_the_browser_and_the_write_block():
 
 # -- write block --------------------------------------------------------------
 
-def test_the_write_block_is_installed_on_theseus_browser():
-    from theseus.explorer.write_block import WriteBlock
+def test_the_write_block_is_installed_on_knarr_browser():
+    from knarr.explorer.write_block import WriteBlock
 
     sync_pw, _, launched, _ = _fake_playwright()
     block = WriteBlock()
@@ -606,7 +606,7 @@ def test_the_write_block_is_installed_on_theseus_browser():
 
 
 def test_writes_allowed_leaves_service_workers_alone():
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     sync_pw, _, launched, _ = _fake_playwright()
     _run(sync_pw, write_block=WriteBlock(WritePolicy(block=False)))
@@ -636,7 +636,7 @@ def test_trace_from_env(monkeypatch, value, on):
 
 
 def test_a_chrome_that_went_away_does_not_fail_a_later_sign_in_follow():
-    from theseus.explorer.borrow import BorrowError
+    from knarr.explorer.borrow import BorrowError
 
     def script(page, url, borrowed):
         yield url
@@ -651,7 +651,7 @@ def test_a_chrome_that_went_away_does_not_fail_a_later_sign_in_follow():
         return borrow(cdp, url)
 
     with patch("playwright.sync_api.sync_playwright", sync_pw):
-        import theseus.explorer.session as mod
+        import knarr.explorer.session as mod
 
         original = mod.borrow_login
         mod.borrow_login = flaky_borrow
@@ -820,11 +820,11 @@ def test_the_trace_and_sandbox_switches_read_the_same_words(monkeypatch, value, 
 
 
 def test_a_devtools_address_not_on_this_machine_stops_the_session_before_any_browser_starts(monkeypatch):
-    from theseus.explorer import borrow
+    from knarr.explorer import borrow
 
     monkeypatch.setattr(session_mod, "borrow_login", borrow.borrow_login)  # the real one: it must refuse
     monkeypatch.setattr(borrow, "_get_json", lambda *a, **k: pytest.fail("Chrome was asked"))
     sync_pw, pw, _, _ = _fake_playwright()
-    with pytest.raises(borrow.BorrowError, match="THESEUS_CDP_URL must be on this machine"):
+    with pytest.raises(borrow.BorrowError, match="KNARR_CDP_URL must be on this machine"):
         _run(sync_pw, cdp_url="http://chrome-box.example.com:9222")
     pw.chromium.launch.assert_not_called()

@@ -1,4 +1,4 @@
-"""Unit tests for theseus/explorer/caps.py.
+"""Unit tests for knarr/explorer/caps.py.
 
 The cap module is timing-sensitive — we use injected providers for
 ``time_provider`` and ``rss_provider`` so every test is deterministic.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from theseus.explorer.caps import (
+from knarr.explorer.caps import (
     DEFAULT_MAX_RSS_MB,
     DEFAULT_MAX_TOKENS_EXPLORE,
     DEFAULT_MAX_TOKENS_SCAFFOLD,
@@ -231,7 +231,7 @@ def test_sample_rss_uses_injected_provider():
 
 def test_default_rss_provider_returns_nonneg_int():
     """The fall-back provider must at least not raise on the host."""
-    from theseus.explorer.caps import _default_rss_mb
+    from knarr.explorer.caps import _default_rss_mb
 
     value = _default_rss_mb()
     assert isinstance(value, int)

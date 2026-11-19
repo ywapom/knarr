@@ -1,4 +1,4 @@
-"""Unit tests for theseus/mcp/worker.py."""
+"""Unit tests for knarr/mcp/worker.py."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from theseus.mcp.worker import BrowserWorker
+from knarr.mcp.worker import BrowserWorker
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-"""Unit tests for theseus/explorer/write_block.py (no browser; fake CDP events)."""
+"""Unit tests for knarr/explorer/write_block.py (no browser; fake CDP events)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from theseus.explorer.write_block import (
+from knarr.explorer.write_block import (
     DISABLE_UNCOVERED_CHANNELS_SCRIPT,
     LAUNCH_ARGS,
     READ_ONLY_RESOURCE_TYPES,
@@ -25,7 +25,7 @@ from theseus.explorer.write_block import (
     path_template,
     record_url,
 )
-from theseus.explorer import write_block as wb
+from knarr.explorer import write_block as wb
 
 
 class FakeCDP:
@@ -96,10 +96,10 @@ def test_a_blocked_form_submission_shows_a_blocked_page_and_is_remembered():
                        body="a=1", content_type="application/x-www-form-urlencoded",
                        resource_type="Document")
     page = base64.b64decode(params["body"]).decode()
-    assert "Blocked by Theseus" in page and "POST https://example.com/logout" in page
+    assert "Blocked by Knarr" in page and "POST https://example.com/logout" in page
     assert "<b>" not in page
     assert block.captured[0]["navigation"] is True
-    assert block.is_blocked_document("https://example.com/logout?x=1", lambda: "Blocked by Theseus")
+    assert block.is_blocked_document("https://example.com/logout?x=1", lambda: "Blocked by Knarr")
 
 
 def test_body_from_post_data_entries():
@@ -528,12 +528,12 @@ def test_a_same_origin_fake_has_no_cors_headers():
 def test_only_the_blocked_document_is_excluded_from_return_targets():
     block = _block()
     _pause(block, "POST", url="https://example.com/settings", resource_type="Document")
-    assert block.is_blocked_document("https://example.com/settings", lambda: "Blocked by Theseus")
+    assert block.is_blocked_document("https://example.com/settings", lambda: "Blocked by Knarr")
     assert not block.is_blocked_document("https://example.com/settings", lambda: "Settings")  # later GET
     called = []
     assert not block.is_blocked_document("https://example.com/other", lambda: called.append(1))
     assert called == []  # the title is only read for a URL that had a blocked post
-    assert not block.is_blocked_document("about:blank", lambda: "Blocked by Theseus")
+    assert not block.is_blocked_document("about:blank", lambda: "Blocked by Knarr")
 
 
 def test_a_very_large_body_is_noted_as_a_limit():
@@ -550,12 +550,12 @@ def test_a_very_large_body_is_noted_as_a_limit():
 
 @pytest.mark.parametrize("env, default, blocks", [
     ({}, True, True), ({}, False, False),
-    ({"THESEUS_BLOCK_WRITES": "1"}, False, True),
-    ({"THESEUS_ALLOW_WRITES": "1"}, True, False),
-    ({"THESEUS_ALLOW_WRITES": "1", "THESEUS_BLOCK_WRITES": "1"}, False, True),  # block wins
+    ({"KNARR_BLOCK_WRITES": "1"}, False, True),
+    ({"KNARR_ALLOW_WRITES": "1"}, True, False),
+    ({"KNARR_ALLOW_WRITES": "1", "KNARR_BLOCK_WRITES": "1"}, False, True),  # block wins
 ])
 def test_policy(monkeypatch, env, default, blocks):
-    for name in ("THESEUS_ALLOW_WRITES", "THESEUS_BLOCK_WRITES", "THESEUS_RECORD_FIELDS", "THESEUS_WRITE_ALLOW"):
+    for name in ("KNARR_ALLOW_WRITES", "KNARR_BLOCK_WRITES", "KNARR_RECORD_FIELDS", "KNARR_WRITE_ALLOW"):
         monkeypatch.delenv(name, raising=False)
     for name, value in env.items():
         monkeypatch.setenv(name, value)
@@ -563,7 +563,7 @@ def test_policy(monkeypatch, env, default, blocks):
 
 
 def test_write_allow_env_is_a_comma_separated_list(monkeypatch):
-    monkeypatch.setenv("THESEUS_WRITE_ALLOW", " **/graphql , ,https://x.example.com/search ")
+    monkeypatch.setenv("KNARR_WRITE_ALLOW", " **/graphql , ,https://x.example.com/search ")
     assert WritePolicy.from_env().allow_patterns == ("**/graphql", "https://x.example.com/search")
 
 
@@ -844,7 +844,7 @@ def test_any_request_to_the_devtools_endpoint_is_refused_whatever_its_type_and_m
     block.handle_paused(_event("GET", url=url, resource_type=resource_type))
     method, params = block._cdp.last()
     assert method == "Fetch.fulfillRequest" and params["responseCode"] == 403
-    assert base64.b64decode(params["body"]).startswith(b"Blocked by Theseus: this is your Chrome's DevTools")
+    assert base64.b64decode(params["body"]).startswith(b"Blocked by Knarr: this is your Chrome's DevTools")
     [entry] = block.captured
     assert entry["outcome"] == "refused" and entry["resource_type"] == "devtools"
     assert block.summary()["blocked_writes"] == 0  # a refused read isn't a blocked write
@@ -1017,7 +1017,7 @@ def test_hostile_part_headers_are_read_in_linear_time(header):
 def test_the_stand_in_for_a_cross_origin_post_is_recognised_at_the_posts_url():
     block = _block()
     _pause(block, "POST", url="https://partner.example.net/receive", resource_type="Document")
-    assert block.is_blocked_document("https://partner.example.net/receive", lambda: "Blocked by Theseus")
+    assert block.is_blocked_document("https://partner.example.net/receive", lambda: "Blocked by Knarr")
 
 
 def test_the_blocked_page_escapes_what_it_shows(monkeypatch):
@@ -1043,26 +1043,26 @@ def test_parse_switch(raw, parsed):
 @pytest.mark.parametrize("value", ["1", "true", "on", "y", "t", "enabled", "2", "enable", "maybe"])
 def test_block_writes_is_on_for_every_value_but_an_explicit_off(monkeypatch, value):
     """The runner defaults to not blocking; a typo must not leave it unblocked."""
-    monkeypatch.setenv("THESEUS_BLOCK_WRITES", value)
+    monkeypatch.setenv("KNARR_BLOCK_WRITES", value)
     assert WritePolicy.from_env(default_block=False).block is True
 
 
 @pytest.mark.parametrize("value", ["0", "false", "off", "no", "", "disabled"])
 def test_block_writes_explicitly_off_leaves_the_default(monkeypatch, value):
-    monkeypatch.setenv("THESEUS_BLOCK_WRITES", value)
+    monkeypatch.setenv("KNARR_BLOCK_WRITES", value)
     assert WritePolicy.from_env(default_block=False).block is False
     assert WritePolicy.from_env(default_block=True).block is True
 
 
 @pytest.mark.parametrize("value, allows", [("1", True), ("on", True), ("y", True), ("2", False), ("enable", False), ("0", False)])
 def test_allow_writes_needs_a_value_that_clearly_says_on(monkeypatch, value, allows):
-    monkeypatch.setenv("THESEUS_ALLOW_WRITES", value)
+    monkeypatch.setenv("KNARR_ALLOW_WRITES", value)
     assert WritePolicy.from_env().block is (not allows)
 
 
 def test_a_block_setting_beats_an_allow_setting_whatever_the_words(monkeypatch):
-    monkeypatch.setenv("THESEUS_ALLOW_WRITES", "on")
-    monkeypatch.setenv("THESEUS_BLOCK_WRITES", "maybe")
+    monkeypatch.setenv("KNARR_ALLOW_WRITES", "on")
+    monkeypatch.setenv("KNARR_BLOCK_WRITES", "maybe")
     assert WritePolicy.from_env(default_block=False).block is True
 
 

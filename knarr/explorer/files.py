@@ -9,7 +9,7 @@ def make_private_dirs(path: Path) -> None:
     """Create ``path`` and any missing parents readable by the user only.
 
     ``mkdir(parents=True, mode=...)`` applies the mode to the last directory
-    only; the runs root and ``~/.theseus`` would be left readable by others, and
+    only; the runs root and ``~/.knarr`` would be left readable by others, and
     their names list the sites visited. Directories that already exist are left
     as they are."""
     missing = []

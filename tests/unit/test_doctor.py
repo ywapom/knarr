@@ -1,4 +1,4 @@
-"""Unit tests for theseus/doctor.py (no browser; the DevTools calls and the session are faked)."""
+"""Unit tests for knarr/doctor.py (no browser; the DevTools calls and the session are faked)."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from theseus import doctor
-from theseus.doctor import fail, info, ok, warn
+from knarr import doctor
+from knarr.doctor import fail, info, ok, warn
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,14 +45,14 @@ def test_required_versions_match_pyproject():
 def test_every_setting_the_doctor_knows_is_in_the_readme_and_the_other_way_round():
     readme = (REPO_ROOT / "README.md").read_text()
     table = readme.split("## Environment variables", 1)[1].split("\n## ", 1)[0]
-    documented = set(re.findall(r"`(THESEUS_[A-Z_]+)`", table))
+    documented = set(re.findall(r"`(KNARR_[A-Z_]+)`", table))
     assert documented == set(doctor.KNOWN_SETTINGS)
 
 
 def test_the_settings_match_the_names_the_code_reads():
-    from theseus.explorer import profiles, session, write_block
-    from theseus.mcp import server
-    from theseus.mcp import session as mcp_session
+    from knarr.explorer import profiles, session, write_block
+    from knarr.mcp import server
+    from knarr.mcp import session as mcp_session
 
     read = {profiles.PROFILES_DIR_ENV, write_block.ALLOW_WRITES_ENV, write_block.BLOCK_WRITES_ENV, write_block.WRITE_ALLOW_ENV,
             write_block.RECORD_FIELDS_ENV, session.TRACE_ENV, session.CDP_URL_ENV, session.STORAGE_STATE_ENV,
@@ -78,7 +78,7 @@ def test_python_that_is_too_old_fails():
 def test_no_uvx_on_the_path_is_a_warning_that_names_the_way_without_it():
     results = doctor.check_python((3, 12, 0), "/x/python", uvx_path="")
     assert statuses(results) == ["ok", "warn"] and "uvx" in results[1].title
-    assert "claude mcp add theseus -- python3 -m theseus.mcp" in results[1].fix
+    assert "claude mcp add knarr -- python3 -m knarr.mcp" in results[1].fix
 
 
 def good_versions(**changes):
@@ -113,7 +113,7 @@ def test_version_parsing(text, parsed):
 # -- settings ---------------------------------------------------------------------------------------------
 
 def settings(tmp_path, **env):
-    return doctor.check_settings({"THESEUS_RUNS_DIR": str(tmp_path / "runs"), **env})
+    return doctor.check_settings({"KNARR_RUNS_DIR": str(tmp_path / "runs"), **env})
 
 
 def test_default_settings_block_writes(tmp_path):
@@ -123,68 +123,68 @@ def test_default_settings_block_writes(tmp_path):
 
 
 def test_allowing_writes_is_a_warning_and_block_wins_a_conflict(tmp_path):
-    [warning] = [r for r in settings(tmp_path, THESEUS_ALLOW_WRITES="1") if r.status == "warn"]
+    [warning] = [r for r in settings(tmp_path, KNARR_ALLOW_WRITES="1") if r.status == "warn"]
     assert "ALLOWED" in warning.title and "real permissions" in warning.detail
-    both = settings(tmp_path, THESEUS_ALLOW_WRITES="1", THESEUS_BLOCK_WRITES="1")
+    both = settings(tmp_path, KNARR_ALLOW_WRITES="1", KNARR_BLOCK_WRITES="1")
     assert both[0].status == "ok" and "BLOCK_WRITES wins" in both[0].title
 
 
 def test_allow_patterns_are_counted_and_bad_ones_fail_with_the_reason(tmp_path):
-    good = settings(tmp_path, THESEUS_WRITE_ALLOW="**/graphql, https://api.example.com/search")
+    good = settings(tmp_path, KNARR_WRITE_ALLOW="**/graphql, https://api.example.com/search")
     assert "2 request pattern(s)" in good[0].detail
-    [bad] = [r for r in settings(tmp_path, THESEUS_WRITE_ALLOW="https://app.example.com") if r.status == "fail"]
-    assert bad.title == "THESEUS_WRITE_ALLOW is not valid" and "has no path" in bad.detail
+    [bad] = [r for r in settings(tmp_path, KNARR_WRITE_ALLOW="https://app.example.com") if r.status == "fail"]
+    assert bad.title == "KNARR_WRITE_ALLOW is not valid" and "has no path" in bad.detail
 
 
 def test_trace_and_no_sandbox_are_warnings(tmp_path):
-    results = settings(tmp_path, THESEUS_TRACE="yes", THESEUS_NO_SANDBOX="1")
+    results = settings(tmp_path, KNARR_TRACE="yes", KNARR_NO_SANDBOX="1")
     warned = [r.title for r in results if r.status == "warn"]
-    assert any("THESEUS_TRACE" in t for t in warned) and any("sandbox is off" in t for t in warned)
+    assert any("KNARR_TRACE" in t for t in warned) and any("sandbox is off" in t for t in warned)
 
 
 def test_a_misspelt_setting_is_found_and_the_right_name_suggested(tmp_path):
-    [typo] = [r for r in settings(tmp_path, THESEUS_ALLOW_WRITE="1") if r.status == "warn"]
-    assert "THESEUS_ALLOW_WRITE is not a Theseus setting" in typo.title and "THESEUS_ALLOW_WRITES" in typo.fix
-    [unknown] = [r for r in settings(tmp_path, THESEUS_BANANA="1") if r.status == "warn"]
+    [typo] = [r for r in settings(tmp_path, KNARR_ALLOW_WRITE="1") if r.status == "warn"]
+    assert "KNARR_ALLOW_WRITE is not a Knarr setting" in typo.title and "KNARR_ALLOW_WRITES" in typo.fix
+    [unknown] = [r for r in settings(tmp_path, KNARR_BANANA="1") if r.status == "warn"]
     assert "README" in unknown.fix
-    assert not [r for r in settings(tmp_path, THESEUS_BROWSER_TESTS="1") if r.status == "warn"]
+    assert not [r for r in settings(tmp_path, KNARR_BROWSER_TESTS="1") if r.status == "warn"]
 
 
 def test_a_storage_state_file_must_exist(tmp_path):
-    [bad] = [r for r in settings(tmp_path, THESEUS_STORAGE_STATE=str(tmp_path / "no.json")) if r.status == "fail"]
-    assert "THESEUS_STORAGE_STATE" in bad.title
+    [bad] = [r for r in settings(tmp_path, KNARR_STORAGE_STATE=str(tmp_path / "no.json")) if r.status == "fail"]
+    assert "KNARR_STORAGE_STATE" in bad.title
     (tmp_path / "state.json").write_text("{}")
-    assert not [r for r in settings(tmp_path, THESEUS_STORAGE_STATE=str(tmp_path / "state.json")) if r.status == "fail"]
+    assert not [r for r in settings(tmp_path, KNARR_STORAGE_STATE=str(tmp_path / "state.json")) if r.status == "fail"]
 
 
 @pytest.mark.parametrize("raw", ["abc", "0", "-5", "1.5"])
 def test_a_limit_that_is_not_a_positive_whole_number_is_called_out(tmp_path, raw):
-    [warning] = [r for r in settings(tmp_path, THESEUS_MAX_TURNS=raw) if r.status == "warn"]
-    assert "THESEUS_MAX_TURNS" in warning.title and "ignored" in warning.detail
+    [warning] = [r for r in settings(tmp_path, KNARR_MAX_TURNS=raw) if r.status == "warn"]
+    assert "KNARR_MAX_TURNS" in warning.title and "ignored" in warning.detail
 
 
 def test_the_browser_setting_is_reported(tmp_path):
     assert "Playwright's Chromium" in [r.title for r in settings(tmp_path) if r.status == "info"][0]
-    assert "installed chrome" in [r.title for r in settings(tmp_path, THESEUS_BROWSER_CHANNEL="chrome") if r.status == "info"][0]
+    assert "installed chrome" in [r.title for r in settings(tmp_path, KNARR_BROWSER_CHANNEL="chrome") if r.status == "info"][0]
 
 
 def test_a_runs_directory_that_cannot_be_written_fails(tmp_path):
     blocker = tmp_path / "file"
     blocker.write_text("")
-    [bad] = [r for r in doctor.check_settings({"THESEUS_RUNS_DIR": str(blocker / "runs")}) if r.status == "fail"]
-    assert "runs directory" in bad.title and "THESEUS_RUNS_DIR" in bad.fix
+    [bad] = [r for r in doctor.check_settings({"KNARR_RUNS_DIR": str(blocker / "runs")}) if r.status == "fail"]
+    assert "runs directory" in bad.title and "KNARR_RUNS_DIR" in bad.fix
 
 
 def test_a_runs_directory_others_can_read_is_a_warning_with_the_command(tmp_path):
     root = tmp_path / "runs"
     root.mkdir(mode=0o755)
     root.chmod(0o755)
-    [warning] = [r for r in doctor.check_settings({"THESEUS_RUNS_DIR": str(root)}) if r.status == "warn"]
+    [warning] = [r for r in doctor.check_settings({"KNARR_RUNS_DIR": str(root)}) if r.status == "warn"]
     assert "readable by others" in warning.title and warning.fix == f"chmod 700 {root}"
 
 
 def test_a_new_runs_directory_is_private(tmp_path):
-    doctor.check_settings({"THESEUS_RUNS_DIR": str(tmp_path / "a" / "runs")})
+    doctor.check_settings({"KNARR_RUNS_DIR": str(tmp_path / "a" / "runs")})
     assert ((tmp_path / "a").stat().st_mode & 0o077) == 0
 
 
@@ -192,7 +192,7 @@ def test_a_new_runs_directory_is_private(tmp_path):
 
 @pytest.fixture
 def chrome(monkeypatch):
-    from theseus.explorer import borrow
+    from knarr.explorer import borrow
 
     state = SimpleNamespace(version={"Browser": "Chrome/156.0", "webSocketDebuggerUrl": "ws://browser"},
                             tabs=[{"type": "page"}, {"type": "page"}, {"type": "service_worker"}],
@@ -217,7 +217,7 @@ def test_without_a_devtools_url_it_explains_how_and_nothing_fails(chrome):
     chrome.down = True
     [result] = doctor.check_devtools({})
     assert result.status == "info" and "sessions start logged out" in result.title
-    assert "--remote-debugging-port=9222" in result.fix and "THESEUS_CDP_URL=http://127.0.0.1:9222" in result.fix
+    assert "--remote-debugging-port=9222" in result.fix and "KNARR_CDP_URL=http://127.0.0.1:9222" in result.fix
     assert "--user-data-dir" in result.fix
 
 
@@ -227,24 +227,24 @@ def test_without_a_devtools_url_but_a_chrome_on_the_usual_port_it_says_so(chrome
 
 
 def test_a_working_devtools_url_passes_and_prints_no_cookie_or_url(chrome):
-    results = doctor.check_devtools({"THESEUS_CDP_URL": "http://127.0.0.1:9222"})
+    results = doctor.check_devtools({"KNARR_CDP_URL": "http://127.0.0.1:9222"})
     assert statuses(results) == ["ok", "ok", "ok"]
     text = "\n".join(f"{r.title} {r.detail}" for r in results)
     assert "Chrome/156.0" in text and "2 tab(s)" in text and "2 in total; none are printed" in text
 
 
 def test_the_websocket_form_of_the_url_works(chrome):
-    assert statuses(doctor.check_devtools({"THESEUS_CDP_URL": "ws://127.0.0.1:9222/devtools/browser/abc"}))[0] == "ok"
+    assert statuses(doctor.check_devtools({"KNARR_CDP_URL": "ws://127.0.0.1:9222/devtools/browser/abc"}))[0] == "ok"
 
 
 def test_an_unreachable_chrome_fails_with_the_launch_command(chrome):
     chrome.down = True
-    [result] = doctor.check_devtools({"THESEUS_CDP_URL": "http://127.0.0.1:9222"})
+    [result] = doctor.check_devtools({"KNARR_CDP_URL": "http://127.0.0.1:9222"})
     assert result.status == "fail" and "Can't reach your Chrome" in result.title and "--remote-debugging-port" in result.fix
 
 
 def test_a_malformed_devtools_url_fails(chrome):
-    [result] = doctor.check_devtools({"THESEUS_CDP_URL": "9222"})
+    [result] = doctor.check_devtools({"KNARR_CDP_URL": "9222"})
     assert result.status == "fail" and "isn't valid" in result.title
 
 
@@ -253,14 +253,14 @@ def test_a_malformed_devtools_url_fails(chrome):
     "http://0.0.0.0:9222", "http://user:pw@127.0.0.1:9222",
 ])
 def test_a_chrome_that_is_not_on_this_machine_fails_and_nothing_is_asked_of_it(chrome, address):
-    [result] = doctor.check_devtools({"THESEUS_CDP_URL": address})
-    assert result.status == "fail" and result.title == "THESEUS_CDP_URL isn't valid"
+    [result] = doctor.check_devtools({"KNARR_CDP_URL": address})
+    assert result.status == "fail" and result.title == "KNARR_CDP_URL isn't valid"
     assert "this machine" in result.detail + result.fix
 
 
 def test_a_refused_websocket_fails(chrome):
     chrome.ws_error = ConnectionRefusedError("refused")
-    results = doctor.check_devtools({"THESEUS_CDP_URL": "http://127.0.0.1:9222"})
+    results = doctor.check_devtools({"KNARR_CDP_URL": "http://127.0.0.1:9222"})
     [bad] = [r for r in results if r.status == "fail"]
     assert "DevTools connection failed" in bad.title and "ConnectionRefusedError" in bad.detail
 
@@ -268,7 +268,7 @@ def test_a_refused_websocket_fails(chrome):
 @pytest.mark.parametrize("system, binary", [("Darwin", "/Applications/Google Chrome.app"), ("Linux", "google-chrome")])
 def test_the_launch_command_fits_the_platform(system, binary):
     command = doctor.chrome_launch_command(system)
-    assert binary in command and "--remote-debugging-port=9222" in command and '--user-data-dir="$HOME/.theseus-chrome"' in command
+    assert binary in command and "--remote-debugging-port=9222" in command and '--user-data-dir="$HOME/.knarr-chrome"' in command
 
 
 # -- the browser and the write block ---------------------------------------------------------------------------
@@ -312,7 +312,7 @@ class _Cm:
 
 def test_a_browser_that_holds_the_write_back_passes():
     fake = FakeSession()
-    results = doctor.check_browser({"THESEUS_BROWSER_CHANNEL": " chrome "}, session=fake)
+    results = doctor.check_browser({"KNARR_BROWSER_CHANNEL": " chrome "}, session=fake)
     assert statuses(results) == ["ok", "ok"] and "installed chrome 130.0.0.1" in results[0].title
     assert fake.args[1]["channel"] == "chrome" and fake.args[1]["write_block"].active  # the block is on, as in a session
 
@@ -320,7 +320,7 @@ def test_a_browser_that_holds_the_write_back_passes():
 def test_a_write_that_reaches_the_server_is_a_failure():
     results = doctor.check_browser({}, session=FakeSession(post_gets_through=True))
     [bad] = [r for r in results if r.status == "fail"]
-    assert "let a write through" in bad.title and "Don't use Theseus on a real site" in bad.fix
+    assert "let a write through" in bad.title and "Don't use Knarr on a real site" in bad.fix
 
 
 def test_a_block_that_saw_nothing_is_a_failure():
@@ -337,12 +337,12 @@ def test_a_blocked_get_is_a_failure():
     ("BrowserType.launch: Executable doesn't exist at /x/chrome-mac/Chromium\nLooks like Playwright was just installed",
      None, "Playwright's Chromium isn't installed", "playwright install chromium"),
     ("BrowserType.launch: Chromium distribution 'chrome' is not found at /Applications/Google Chrome.app",
-     "chrome", "The browser 'chrome' isn't installed", "unset THESEUS_BROWSER_CHANNEL"),
-    ("FATAL: No usable sandbox!", None, "The browser started and stopped at once", "THESEUS_NO_SANDBOX=1"),
+     "chrome", "The browser 'chrome' isn't installed", "unset KNARR_BROWSER_CHANNEL"),
+    ("FATAL: No usable sandbox!", None, "The browser started and stopped at once", "KNARR_NO_SANDBOX=1"),
     ("net::ERR_CONNECTION_REFUSED", None, "The browser couldn't start or load the test page", ""),
 ])
 def test_browser_failures_are_explained_with_the_fix(message, channel, title, fix):
-    env = {"THESEUS_BROWSER_CHANNEL": channel} if channel else {}
+    env = {"KNARR_BROWSER_CHANNEL": channel} if channel else {}
     [result] = doctor.check_browser(env, session=FakeSession(raises=RuntimeError(message)))
     assert result.status == "fail" and result.title == title and fix in result.fix
 
@@ -373,7 +373,7 @@ def test_a_server_that_will_not_start_fails_with_the_reason():
         raise RuntimeError("Connection closed")
 
     [result] = doctor.check_server(tools)
-    assert result.status == "fail" and "RuntimeError: Connection closed" in result.detail and f"{sys.executable} -m theseus.mcp" in result.fix
+    assert result.status == "fail" and "RuntimeError: Connection closed" in result.detail and f"{sys.executable} -m knarr.mcp" in result.fix
 
 
 def test_a_server_that_does_not_answer_times_out(monkeypatch):
@@ -394,18 +394,18 @@ def test_the_report_shows_status_detail_and_fix_and_a_verdict():
                                        fail("broken", "why", "line one\nline two"), info("note")])])
     assert "ok    fine - all good" in text and "WARN  hmm - look" in text and "fix: do this" in text
     assert "FAIL  broken - why" in text and "fix: line one\n        line two" in text and "info  note" in text
-    assert "1 ok, 1 warning(s), 1 failure(s). Theseus can't run here yet" in text
+    assert "1 ok, 1 warning(s), 1 failure(s). Knarr can't run here yet" in text
 
 
 def test_the_verdicts():
-    assert doctor.render([("S", [ok("a")])]).endswith("Everything Theseus needs works here.")
-    assert doctor.render([("S", [ok("a"), warn("b")])]).endswith("Theseus can run here; read the warnings.")
+    assert doctor.render([("S", [ok("a")])]).endswith("Everything Knarr needs works here.")
+    assert doctor.render([("S", [ok("a"), warn("b")])]).endswith("Knarr can run here; read the warnings.")
 
 
 def test_quick_skips_the_browser_and_the_server(monkeypatch, tmp_path):
     monkeypatch.setattr(doctor, "check_browser", lambda env: pytest.fail("browser started"))
     monkeypatch.setattr(doctor, "check_server", lambda: pytest.fail("server started"))
-    sections = doctor.run_checks({"THESEUS_RUNS_DIR": str(tmp_path / "r")}, quick=True)
+    sections = doctor.run_checks({"KNARR_RUNS_DIR": str(tmp_path / "r")}, quick=True)
     assert [name for name, _ in sections] == ["Python and uv", "Packages", "Settings", "Site profiles", "Chrome login"]
 
 
@@ -413,7 +413,7 @@ def test_broken_packages_skip_the_browser_with_a_reason(monkeypatch, tmp_path):
     monkeypatch.setattr(doctor, "check_packages", lambda: [fail("playwright is not installed")])
     monkeypatch.setattr(doctor, "check_browser", lambda env: pytest.fail("browser started"))
     monkeypatch.setattr(doctor, "check_server", lambda: pytest.fail("server started"))
-    sections = doctor.run_checks({"THESEUS_RUNS_DIR": str(tmp_path / "r")})
+    sections = doctor.run_checks({"KNARR_RUNS_DIR": str(tmp_path / "r")})
     assert sections[-1][1][0].title == "Skipped: fix the packages first"
 
 
@@ -432,30 +432,30 @@ def test_main_rejects_unknown_options_and_prints_help():
     assert doctor.main(["--help"], env={}, out=out) == 0 and doctor.DOCTOR_COMMAND in out.getvalue()
 
 
-@pytest.mark.parametrize("name", ["THESEUS_BLOCK_WRITES", "THESEUS_ALLOW_WRITES", "THESEUS_TRACE", "THESEUS_NO_SANDBOX"])
+@pytest.mark.parametrize("name", ["KNARR_BLOCK_WRITES", "KNARR_ALLOW_WRITES", "KNARR_TRACE", "KNARR_NO_SANDBOX"])
 @pytest.mark.parametrize("value", ["2", "enable", "maybe", "onn"])
 def test_a_switch_set_to_something_that_is_not_understood_is_called_out(tmp_path, name, value):
     [warning] = [r for r in settings(tmp_path, **{name: value}) if r.status == "warn" and "not understood" in r.title]
     assert name in warning.title and "Say 1 or 0" in warning.detail and f"{name}=1" in warning.fix
     # A value nobody can read blocks writes (BLOCK_WRITES) or leaves the setting off; it never allows or enables.
-    assert warning.title.endswith("writes are blocked" if name == "THESEUS_BLOCK_WRITES" else "it is off")
+    assert warning.title.endswith("writes are blocked" if name == "KNARR_BLOCK_WRITES" else "it is off")
 
 
 @pytest.mark.parametrize("value", ["1", "true", "YES", "on", "y", "t", "enabled", "0", "false", "no", "off", "n", " 1 "])
 def test_the_values_it_understands_are_not_called_out(tmp_path, value):
-    assert not [r for r in settings(tmp_path, THESEUS_BLOCK_WRITES=value) if "not understood" in r.title]
+    assert not [r for r in settings(tmp_path, KNARR_BLOCK_WRITES=value) if "not understood" in r.title]
 
 
 # -- site profiles -------------------------------------------------------------------------------------
 
-def _profile_env(tmp_path, files=None, mode=0o700, where=".theseus/sites"):
-    """The profiles directory, by default where ``~/.theseus/sites`` is when the home is ``tmp_path``."""
+def _profile_env(tmp_path, files=None, mode=0o700, where=".knarr/sites"):
+    """The profiles directory, by default where ``~/.knarr/sites`` is when the home is ``tmp_path``."""
     d = tmp_path / where
     d.mkdir(parents=True, exist_ok=True)
     d.chmod(mode)
     for name, text in (files or {}).items():
         (d / name).write_text(text)
-    return d, {"THESEUS_PROFILES_DIR": str(d)}
+    return d, {"KNARR_PROFILES_DIR": str(d)}
 
 
 def _claude_settings(home, permissions):
@@ -464,7 +464,7 @@ def _claude_settings(home, permissions):
 
 
 def test_no_profiles_directory_is_only_a_note(tmp_path):
-    results = doctor.check_profiles({"THESEUS_PROFILES_DIR": str(tmp_path / "nope")}, home=tmp_path, cwd=tmp_path)
+    results = doctor.check_profiles({"KNARR_PROFILES_DIR": str(tmp_path / "nope")}, home=tmp_path, cwd=tmp_path)
     assert statuses(results) == ["info"] and results[0].title == "No site profiles"
 
 
@@ -516,16 +516,16 @@ def _warns_nothing_guards(results):
 
 
 @pytest.mark.parametrize("kind, rule", [
-    ("ask", "Edit(~/.theseus/sites/**)"),
-    ("deny", "Edit(~/.theseus/sites/**)"),
-    ("deny", "Write(~/.theseus/sites/**)"),
-    ("ask", "Edit(~/.theseus/**)"),
+    ("ask", "Edit(~/.knarr/sites/**)"),
+    ("deny", "Edit(~/.knarr/sites/**)"),
+    ("deny", "Write(~/.knarr/sites/**)"),
+    ("ask", "Edit(~/.knarr/**)"),
     ("ask", "Edit(~/**)"),
-    ("ask", "Edit(~/.theseus/sites)"),
-    ("ask", "Edit(~/.theseus/sites/)"),
-    ("ask", "Edit(~/.theseus/sites/*)"),
-    ("ask", "Edit(~/.theseus/**/*)"),
-    ("deny", "Edit(~/.theseus/sites/*.y*ml)"),
+    ("ask", "Edit(~/.knarr/sites)"),
+    ("ask", "Edit(~/.knarr/sites/)"),
+    ("ask", "Edit(~/.knarr/sites/*)"),
+    ("ask", "Edit(~/.knarr/**/*)"),
+    ("deny", "Edit(~/.knarr/sites/*.y*ml)"),
     ("ask", "Edit"),  # the whole tool
 ])
 def test_a_rule_about_editing_files_in_the_directory_counts(tmp_path, kind, rule):
@@ -542,22 +542,22 @@ def test_an_absolute_path_rule_counts(tmp_path):
 
 
 @pytest.mark.parametrize("kind, rule", [
-    ("allow", "Edit(~/.theseus/sites/**)"),  # permits, doesn't ask
+    ("allow", "Edit(~/.knarr/sites/**)"),  # permits, doesn't ask
     ("deny", "Edit(~/.ssh/**)"),
-    ("deny", "Read(~/.theseus/sites/**)"),  # reading is not editing
-    ("deny", "Read(~/.theseus/runs/**)"),
-    ("deny", "Bash(rm -rf ~/.theseus/runs)"),
-    ("deny", "WebFetch(domain:.theseus.example)"),
-    ("ask", "Edit(~/.theseus/other/**)"),
-    ("ask", "Edit(~/.theseus/runs/**)"),
-    ("ask", "Edit(~/.theseus/sites/nested/**)"),  # a subdirectory only
-    ("ask", "Edit(~/.theseus/sites-backup/**)"),  # starts the same, is another directory
-    ("ask", "Edit(~/.theseus/sites/*.yaml)"),  # leaves .yml files open
-    ("ask", "Edit(~/.theseus/sites/*.json)"),
-    ("ask", "Edit(.theseus/sites/**)"),  # relative: which directory it means isn't known here
-    ("ask", "Edit(/.theseus/sites/**)"),
+    ("deny", "Read(~/.knarr/sites/**)"),  # reading is not editing
+    ("deny", "Read(~/.knarr/runs/**)"),
+    ("deny", "Bash(rm -rf ~/.knarr/runs)"),
+    ("deny", "WebFetch(domain:.knarr.example)"),
+    ("ask", "Edit(~/.knarr/other/**)"),
+    ("ask", "Edit(~/.knarr/runs/**)"),
+    ("ask", "Edit(~/.knarr/sites/nested/**)"),  # a subdirectory only
+    ("ask", "Edit(~/.knarr/sites-backup/**)"),  # starts the same, is another directory
+    ("ask", "Edit(~/.knarr/sites/*.yaml)"),  # leaves .yml files open
+    ("ask", "Edit(~/.knarr/sites/*.json)"),
+    ("ask", "Edit(.knarr/sites/**)"),  # relative: which directory it means isn't known here
+    ("ask", "Edit(/.knarr/sites/**)"),
     ("ask", "Edit(*)"),
-    ("ask", "Edit(~/.theseus/sites/**"),  # not a well-formed rule
+    ("ask", "Edit(~/.knarr/sites/**"),  # not a well-formed rule
     ("ask", "not a rule"),
 ])
 def test_a_rule_that_is_not_about_editing_files_in_the_directory_does_not_count(tmp_path, kind, rule):
@@ -569,9 +569,9 @@ def test_a_rule_that_is_not_about_editing_files_in_the_directory_does_not_count(
 
 def test_the_warning_names_a_rule_that_mentions_the_directory_but_does_not_guard_it(tmp_path):
     _, env = _profile_env(tmp_path, {"m.yaml": "origins: [https://a.example.com]\n"})
-    _claude_settings(tmp_path, {"deny": ["Read(~/.theseus/sites/**)"]})
+    _claude_settings(tmp_path, {"deny": ["Read(~/.knarr/sites/**)"]})
     warning = _warns_nothing_guards(doctor.check_profiles(env, home=tmp_path, cwd=tmp_path))
-    assert "Read(~/.theseus/sites/**)" in warning.detail and "not an ask or deny rule for editing" in warning.detail
+    assert "Read(~/.knarr/sites/**)" in warning.detail and "not an ask or deny rule for editing" in warning.detail
 
 
 def test_the_suggested_rule_matches_the_directory_in_use(tmp_path):
@@ -580,16 +580,16 @@ def test_the_suggested_rule_matches_the_directory_in_use(tmp_path):
     assert "Edit(~/work/profiles/**)" in warning.fix
     default = _profile_env(tmp_path / "other", {"m.yaml": "origins: [https://a.example.com]\n"})[1]
     warning = _warns_nothing_guards(doctor.check_profiles(default, home=tmp_path / "other", cwd=tmp_path))
-    assert "Edit(~/.theseus/sites/**)" in warning.fix
+    assert "Edit(~/.knarr/sites/**)" in warning.fix
     outside = _warns_nothing_guards(doctor.check_profiles(env, home=tmp_path / "elsewhere", cwd=tmp_path))
     assert "an Edit rule that covers that directory" in outside.fix and "Edit(~" not in outside.fix
 
 
 def test_a_rule_for_the_default_directory_does_not_guard_a_directory_set_by_the_environment(tmp_path):
     _, env = _profile_env(tmp_path, {"m.yaml": "origins: [https://a.example.com]\n"}, where="work/profiles")
-    _claude_settings(tmp_path, {"ask": ["Edit(~/.theseus/sites/**)"]})
+    _claude_settings(tmp_path, {"ask": ["Edit(~/.knarr/sites/**)"]})
     assert _warns_nothing_guards(doctor.check_profiles(env, home=tmp_path, cwd=tmp_path))
-    _claude_settings(tmp_path, {"ask": ["Edit(~/.theseus/sites/**)", "Edit(~/work/profiles/**)"]})
+    _claude_settings(tmp_path, {"ask": ["Edit(~/.knarr/sites/**)", "Edit(~/work/profiles/**)"]})
     assert _asks_or_refuses_edits(doctor.check_profiles(env, home=tmp_path, cwd=tmp_path))
 
 
@@ -606,6 +606,6 @@ def test_project_settings_count_too(tmp_path):
     _, env = _profile_env(tmp_path, {"m.yaml": "origins: [https://a.example.com]\n"})
     project = tmp_path / "proj"
     (project / ".claude").mkdir(parents=True)
-    (project / ".claude" / "settings.json").write_text('{"permissions": {"deny": ["Write(~/.theseus/**)"]}}')
+    (project / ".claude" / "settings.json").write_text('{"permissions": {"deny": ["Write(~/.knarr/**)"]}}')
     results = doctor.check_profiles(env, home=tmp_path, cwd=project)
     assert any(r.status == "ok" and "set to ask or refuse" in r.title for r in results)

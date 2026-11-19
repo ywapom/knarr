@@ -1,15 +1,15 @@
-"""``theseus-doctor``: check that Theseus can run here, and say how to fix what can't.
+"""``knarr-doctor``: check that Knarr can run here, and say how to fix what can't.
 
 It checks, in order: the Python that runs it, the installed packages, your
-``THESEUS_*`` settings, your site profiles, the browser (it starts one, loads a
+``KNARR_*`` settings, your site profiles, the browser (it starts one, loads a
 local test page that tries to write, and checks that the write block held the
 write back), the Chrome you borrow a login from, and that the MCP server starts
 and lists its tools. Nothing here opens a site, and no cookie value is read or printed.
 
-    uvx --from theseus-mcp theseus-doctor           everything
-    uvx --from theseus-mcp theseus-doctor --quick   settings, packages and Chrome only (no browser, no server)
+    uvx --from knarr knarr-doctor           everything
+    uvx --from knarr knarr-doctor --quick   settings, packages and Chrome only (no browser, no server)
 
-Installed with pip, run it as ``theseus-doctor`` or ``python3 -m theseus.doctor``.
+Installed with pip, run it as ``knarr-doctor`` or ``python3 -m knarr.doctor``.
 
 Exit status 1 if anything failed; warnings don't change it.
 """
@@ -44,26 +44,26 @@ REQUIRED: Dict[str, Tuple[Tuple[int, ...], Optional[Tuple[int, ...]]]] = {
     "websockets": ((12,), (16,)),
 }
 
-DIST_NAME = "theseus-mcp"
+DIST_NAME = "knarr"
 # The plugin starts the server with uvx, which fetches the package from PyPI on first use.
 SERVER_COMMAND = f"uvx {DIST_NAME}"
-DOCTOR_COMMAND = f"uvx --from {DIST_NAME} theseus-doctor"
+DOCTOR_COMMAND = f"uvx --from {DIST_NAME} knarr-doctor"
 # What fixes a missing or mismatched package: a fresh copy through uvx, or pip for a pip install.
-INSTALL_COMMAND = f"uvx --refresh --from {DIST_NAME} theseus-doctor"
+INSTALL_COMMAND = f"uvx --refresh --from {DIST_NAME} knarr-doctor"
 PIP_INSTALL_COMMAND = f"python3 -m pip install --upgrade {DIST_NAME}"
 PACKAGE_FIX = f"{INSTALL_COMMAND}\n(installed with pip instead: {PIP_INSTALL_COMMAND})"
 BROWSER_COMMAND = f"uvx --from {DIST_NAME} playwright install chromium"
 
-RUNS_DIR_ENV = "THESEUS_RUNS_DIR"
-PROFILES_DIR_ENV = "THESEUS_PROFILES_DIR"  # the profiles module owns it; imported lazily, a test keeps them equal
+RUNS_DIR_ENV = "KNARR_RUNS_DIR"
+PROFILES_DIR_ENV = "KNARR_PROFILES_DIR"  # the profiles module owns it; imported lazily, a test keeps them equal
 KNOWN_SETTINGS = (
-    "THESEUS_ALLOW_WRITES", "THESEUS_BLOCK_WRITES", "THESEUS_WRITE_ALLOW", "THESEUS_RECORD_FIELDS",
-    "THESEUS_CDP_URL", "THESEUS_STORAGE_STATE", "THESEUS_BROWSER_CHANNEL", "THESEUS_NO_SANDBOX",
-    "THESEUS_TRACE", RUNS_DIR_ENV, "THESEUS_MAX_TURNS", "THESEUS_MAX_WALL_CLOCK_SEC",
-    "THESEUS_IDLE_TIMEOUT_SEC", PROFILES_DIR_ENV,
+    "KNARR_ALLOW_WRITES", "KNARR_BLOCK_WRITES", "KNARR_WRITE_ALLOW", "KNARR_RECORD_FIELDS",
+    "KNARR_CDP_URL", "KNARR_STORAGE_STATE", "KNARR_BROWSER_CHANNEL", "KNARR_NO_SANDBOX",
+    "KNARR_TRACE", RUNS_DIR_ENV, "KNARR_MAX_TURNS", "KNARR_MAX_WALL_CLOCK_SEC",
+    "KNARR_IDLE_TIMEOUT_SEC", PROFILES_DIR_ENV,
 )
 # Set by the tests that drive real browsers; not a setting for users.
-TEST_ONLY_SETTINGS = ("THESEUS_BROWSER_TESTS",)
+TEST_ONLY_SETTINGS = ("KNARR_BROWSER_TESTS",)
 
 BROWSER_TEST_SECONDS = 90
 SERVER_TEST_SECONDS = 30
@@ -116,8 +116,8 @@ def check_python(version: Sequence[int] = tuple(sys.version_info[:3]), executabl
     results: List[Result] = []
     shown = ".".join(str(v) for v in version[:3])
     if tuple(version[:2]) < MIN_PYTHON:
-        results.append(fail(f"Python {shown} is too old", f"Theseus needs Python {'.'.join(map(str, MIN_PYTHON))} or newer.",
-                            "Install a newer Python and install Theseus for it."))
+        results.append(fail(f"Python {shown} is too old", f"Knarr needs Python {'.'.join(map(str, MIN_PYTHON))} or newer.",
+                            "Install a newer Python and install Knarr for it."))
     else:
         results.append(ok(f"Python {shown}", executable))
     if uvx_path is None:
@@ -127,7 +127,7 @@ def check_python(version: Sequence[int] = tuple(sys.version_info[:3]), executabl
     else:
         results.append(warn("No uvx on your PATH", f"The Claude Code plugin starts the server with `{SERVER_COMMAND}`.",
                             "Install uv (https://docs.astral.sh/uv/), or skip the plugin and add the server "
-                            "for the Python that has Theseus: claude mcp add theseus -- python3 -m theseus.mcp"))
+                            "for the Python that has Knarr: claude mcp add knarr -- python3 -m knarr.mcp"))
     return results
 
 
@@ -167,59 +167,59 @@ def check_packages(versions: Optional[Mapping[str, Optional[str]]] = None) -> Li
 # -- settings -------------------------------------------------------------------------------------
 
 def check_settings(env: Mapping[str, str]) -> List[Result]:
-    from theseus.explorer.write_block import WriteBlock, WritePolicy, parse_switch
+    from knarr.explorer.write_block import WriteBlock, WritePolicy, parse_switch
 
     results: List[Result] = []
     known = set(KNOWN_SETTINGS) | set(TEST_ONLY_SETTINGS)
-    for name in sorted(k for k in env if k.startswith("THESEUS_") and k not in known):
+    for name in sorted(k for k in env if k.startswith("KNARR_") and k not in known):
         close = difflib.get_close_matches(name, KNOWN_SETTINGS, n=1, cutoff=0.7)
-        results.append(warn(f"{name} is not a Theseus setting", "It has no effect.",
+        results.append(warn(f"{name} is not a Knarr setting", "It has no effect.",
                             f"Did you mean {close[0]}?" if close else "See the environment variables table in the README."))
 
     def flag(name: str) -> bool:
         return parse_switch(env.get(name)) is True
 
-    # A switch that nobody can read is off, except THESEUS_BLOCK_WRITES, where it counts as on. Say so.
-    for name in ("THESEUS_ALLOW_WRITES", "THESEUS_BLOCK_WRITES", "THESEUS_TRACE", "THESEUS_NO_SANDBOX"):
+    # A switch that nobody can read is off, except KNARR_BLOCK_WRITES, where it counts as on. Say so.
+    for name in ("KNARR_ALLOW_WRITES", "KNARR_BLOCK_WRITES", "KNARR_TRACE", "KNARR_NO_SANDBOX"):
         raw = (env.get(name) or "").strip()
         if parse_switch(raw) is None:
-            safe = name == "THESEUS_BLOCK_WRITES"
+            safe = name == "KNARR_BLOCK_WRITES"
             results.append(warn(f"{name}={raw!r} is not understood, so " + ("writes are blocked" if safe else "it is off"),
                                 "Say 1 or 0 (also true/false, yes/no, on/off).",
                                 f"Set {name}=1" if safe else f"Set {name}=1 to turn it on."))
     # The write policy, built the way the server builds it.
-    block = parse_switch(env.get("THESEUS_BLOCK_WRITES")) is not False
-    allow = flag("THESEUS_ALLOW_WRITES")
-    patterns = tuple(p.strip() for p in (env.get("THESEUS_WRITE_ALLOW") or "").split(",") if p.strip())
+    block = parse_switch(env.get("KNARR_BLOCK_WRITES")) is not False
+    allow = flag("KNARR_ALLOW_WRITES")
+    patterns = tuple(p.strip() for p in (env.get("KNARR_WRITE_ALLOW") or "").split(",") if p.strip())
     try:
         WriteBlock(WritePolicy(block=block or not allow, allow_patterns=patterns))
     except ValueError as exc:
-        results.append(fail("THESEUS_WRITE_ALLOW is not valid", str(exc), "Fix or unset THESEUS_WRITE_ALLOW."))
+        results.append(fail("KNARR_WRITE_ALLOW is not valid", str(exc), "Fix or unset KNARR_WRITE_ALLOW."))
         patterns = ()
     if allow and not block:
-        results.append(warn("Writes are ALLOWED (THESEUS_ALLOW_WRITES)",
+        results.append(warn("Writes are ALLOWED (KNARR_ALLOW_WRITES)",
                             "Clicks act with your real permissions and can change data.",
-                            "Unset THESEUS_ALLOW_WRITES to block writes again."))
+                            "Unset KNARR_ALLOW_WRITES to block writes again."))
     else:
-        note = f"; {len(patterns)} request pattern(s) in THESEUS_WRITE_ALLOW are let through" if patterns else ""
-        results.append(ok("Writes are blocked" + (" (THESEUS_BLOCK_WRITES wins over THESEUS_ALLOW_WRITES)" if allow else ""), note.lstrip("; ")))
-    if flag("THESEUS_TRACE"):
-        results.append(warn("THESEUS_TRACE is on", "trace.zip holds page contents, typed text and cookies, so the session's login.",
+        note = f"; {len(patterns)} request pattern(s) in KNARR_WRITE_ALLOW are let through" if patterns else ""
+        results.append(ok("Writes are blocked" + (" (KNARR_BLOCK_WRITES wins over KNARR_ALLOW_WRITES)" if allow else ""), note.lstrip("; ")))
+    if flag("KNARR_TRACE"):
+        results.append(warn("KNARR_TRACE is on", "trace.zip holds page contents, typed text and cookies, so the session's login.",
                             "Unset it unless you are debugging, and delete the traces after."))
-    if flag("THESEUS_NO_SANDBOX"):
-        results.append(warn("Chromium's sandbox is off (THESEUS_NO_SANDBOX)",
+    if flag("KNARR_NO_SANDBOX"):
+        results.append(warn("Chromium's sandbox is off (KNARR_NO_SANDBOX)",
                             "A page that exploits the browser then runs with your account's permissions.",
                             "Unset it unless you are in a container that can't run the sandbox."))
-    channel = (env.get("THESEUS_BROWSER_CHANNEL") or "").strip()
+    channel = (env.get("KNARR_BROWSER_CHANNEL") or "").strip()
     results.append(info("Browser: " + (f"installed {channel}" if channel else "Playwright's Chromium"),
-                        "" if channel else f"Set THESEUS_BROWSER_CHANNEL=chrome to use the Chrome you have instead of `{BROWSER_COMMAND}`."))
-    state = (env.get("THESEUS_STORAGE_STATE") or "").strip()
+                        "" if channel else f"Set KNARR_BROWSER_CHANNEL=chrome to use the Chrome you have instead of `{BROWSER_COMMAND}`."))
+    state = (env.get("KNARR_STORAGE_STATE") or "").strip()
     if state and not Path(state).expanduser().is_file():
-        results.append(fail("THESEUS_STORAGE_STATE doesn't name a file", state,
+        results.append(fail("KNARR_STORAGE_STATE doesn't name a file", state,
                             "Point it at a Playwright storage-state file, or unset it."))
     elif state:
-        results.append(ok("THESEUS_STORAGE_STATE", "a saved login will be used"))
-    for name in ("THESEUS_MAX_TURNS", "THESEUS_MAX_WALL_CLOCK_SEC", "THESEUS_IDLE_TIMEOUT_SEC"):
+        results.append(ok("KNARR_STORAGE_STATE", "a saved login will be used"))
+    for name in ("KNARR_MAX_TURNS", "KNARR_MAX_WALL_CLOCK_SEC", "KNARR_IDLE_TIMEOUT_SEC"):
         raw = (env.get(name) or "").strip()
         if raw and not (raw.isascii() and raw.isdigit() and int(raw) > 0):
             results.append(warn(f"{name}={raw!r} is not a positive whole number", "It is ignored; the default applies."))
@@ -229,9 +229,9 @@ def check_settings(env: Mapping[str, str]) -> List[Result]:
 
 def _check_runs_dir(env: Mapping[str, str]) -> Result:
     raw = (env.get(RUNS_DIR_ENV) or "").strip()
-    root = Path(raw).expanduser() if raw else Path.home() / ".theseus" / "runs"
+    root = Path(raw).expanduser() if raw else Path.home() / ".knarr" / "runs"
     try:
-        from theseus.explorer.files import make_private_dirs
+        from knarr.explorer.files import make_private_dirs
 
         make_private_dirs(root)
         with tempfile.NamedTemporaryFile(dir=root):
@@ -304,10 +304,10 @@ def _glob_regex(pattern: str) -> "re.Pattern[str]":
 
 
 def _rule_covers(rule: str, directory: Path, home: Path) -> bool:
-    """Whether ``rule`` (``Edit(~/.theseus/sites/**)``) is about editing files in ``directory``.
+    """Whether ``rule`` (``Edit(~/.knarr/sites/**)``) is about editing files in ``directory``.
 
     A rule for another tool (Read, Bash, WebFetch) or for another directory doesn't count,
-    however much of ``.theseus`` its text mentions.
+    however much of ``.knarr`` its text mentions.
     """
     found = _RULE.match(rule)
     if not found or found.group(1) not in EDIT_TOOLS:
@@ -342,7 +342,7 @@ def _suggested_rule(directory: Path, home: Path) -> str:
 def check_profiles(env: Mapping[str, str], home: Optional[Path] = None, cwd: Optional[Path] = None) -> List[Result]:
     """Parse the site profiles, and say whether anything keeps the model from editing them."""
     try:
-        from theseus.explorer import profiles
+        from knarr.explorer import profiles
     except Exception as exc:  # most likely PyYAML is missing; the packages check says so
         return [info("Skipped: the profile code can't be loaded", f"{type(exc).__name__}: {exc}")]
     home = home or Path.home()
@@ -374,7 +374,7 @@ def check_profiles(env: Mapping[str, str], home: Optional[Path] = None, cwd: Opt
         results.append(ok("Claude Code is set to ask or refuse edits to your site profiles",
                           f"{covering[0][1]} in {covering[0][0]}"))
     else:
-        near = [rule for _, rule in rules if ".theseus" in rule or str(directory) in rule]
+        near = [rule for _, rule in rules if ".knarr" in rule or str(directory) in rule]
         results.append(warn(
             "Nothing makes Claude Code ask before editing your site profiles",
             f"A model that can write files could widen its own policy in {directory} before the next session."
@@ -393,31 +393,31 @@ def chrome_launch_command(system: Optional[str] = None) -> str:
     system = system or platform.system()
     binary = {"Darwin": '"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"',
               "Linux": "google-chrome"}.get(system, "chrome")
-    return (f'{binary} --remote-debugging-port=9222 --user-data-dir="$HOME/.theseus-chrome"')
+    return (f'{binary} --remote-debugging-port=9222 --user-data-dir="$HOME/.knarr-chrome"')
 
 
 def check_devtools(env: Mapping[str, str]) -> List[Result]:
-    from theseus.explorer import borrow
+    from knarr.explorer import borrow
 
-    url = (env.get("THESEUS_CDP_URL") or "").strip()
+    url = (env.get("KNARR_CDP_URL") or "").strip()
     results: List[Result] = []
     launch = ("Start Chrome with a debugging port and a separate profile, log in to the site there and keep a tab open on it:\n"
-              f"    {chrome_launch_command()}\n    export THESEUS_CDP_URL=http://127.0.0.1:9222\n"
+              f"    {chrome_launch_command()}\n    export KNARR_CDP_URL=http://127.0.0.1:9222\n"
               "(Chrome 136 and later ignore the debugging port on your normal profile, hence the separate one.)")
     if not url:
         try:
             borrow._get_json("http://127.0.0.1:9222", "/json/version", timeout=1)
             results.append(info("A Chrome with a debugging port answers on http://127.0.0.1:9222",
-                                "THESEUS_CDP_URL isn't set, so sessions start logged out.",
-                                "export THESEUS_CDP_URL=http://127.0.0.1:9222 to borrow its login."))
+                                "KNARR_CDP_URL isn't set, so sessions start logged out.",
+                                "export KNARR_CDP_URL=http://127.0.0.1:9222 to borrow its login."))
         except borrow.BorrowError:
-            results.append(info("THESEUS_CDP_URL isn't set: sessions start logged out",
-                                "Borrowing your login from a Chrome is optional (THESEUS_STORAGE_STATE is the other way).", launch))
+            results.append(info("KNARR_CDP_URL isn't set: sessions start logged out",
+                                "Borrowing your login from a Chrome is optional (KNARR_STORAGE_STATE is the other way).", launch))
         return results
     try:
         base = borrow._http_base(url)
     except borrow.BorrowError as exc:
-        return [fail("THESEUS_CDP_URL isn't valid", str(exc),
+        return [fail("KNARR_CDP_URL isn't valid", str(exc),
                      "Use http://127.0.0.1:9222 (or the ws:// address Chrome prints). It must be on this machine.")]
     try:
         version = borrow._get_json(base, "/json/version", timeout=5)
@@ -446,7 +446,7 @@ def check_devtools(env: Mapping[str, str]) -> List[Result]:
 class _ProbeServer:
     """A local page that reads, then tries to write; records what reaches it."""
 
-    PAGE = ("<!doctype html><title>Theseus doctor</title><h1>Theseus doctor</h1><script>"
+    PAGE = ("<!doctype html><title>Knarr doctor</title><h1>Knarr doctor</h1><script>"
             "fetch('/read').then(() => fetch('/write', {method: 'POST', body: 'x=1'}))"
             ".then(() => { window.__probed = true; });</script>")
 
@@ -492,12 +492,12 @@ def _explain_browser_failure(exc: BaseException, channel: Optional[str]) -> Resu
     if "executable doesn't exist" in low or "playwright install" in low or ("distribution" in low and "is not found" in low):
         if channel:
             return fail(f"The browser {channel!r} isn't installed", first,
-                        f"Install it, or unset THESEUS_BROWSER_CHANNEL and run `{BROWSER_COMMAND}`.")
+                        f"Install it, or unset KNARR_BROWSER_CHANNEL and run `{BROWSER_COMMAND}`.")
         return fail("Playwright's Chromium isn't installed", first,
-                    f"{BROWSER_COMMAND}   (or set THESEUS_BROWSER_CHANNEL=chrome to use the Chrome you have)")
+                    f"{BROWSER_COMMAND}   (or set KNARR_BROWSER_CHANNEL=chrome to use the Chrome you have)")
     if "sandbox" in low or "has been closed" in low:
         return fail("The browser started and stopped at once", first,
-                    "If Chromium's sandbox can't run here (a container, or another sandbox), set THESEUS_NO_SANDBOX=1.")
+                    "If Chromium's sandbox can't run here (a container, or another sandbox), set KNARR_NO_SANDBOX=1.")
     return fail("The browser couldn't start or load the test page", first)
 
 
@@ -508,11 +508,11 @@ class _Timeout(Exception):
 def check_browser(env: Mapping[str, str],
                   session: Optional[Callable[..., Any]] = None) -> List[Result]:
     """Start the browser the way a session does, with the write block on, and load a page that writes."""
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     if session is None:
-        from theseus.explorer.session import plain_session as session
-    channel = (env.get("THESEUS_BROWSER_CHANNEL") or "").strip() or None
+        from knarr.explorer.session import plain_session as session
+    channel = (env.get("KNARR_BROWSER_CHANNEL") or "").strip() or None
     server = _ProbeServer()
     block = WriteBlock(WritePolicy(block=True))
     started = time.monotonic()
@@ -530,7 +530,7 @@ def check_browser(env: Mapping[str, str],
             s.page.wait_for_timeout(300)
     except _Timeout:
         return [fail("The browser test timed out", f"No result after {BROWSER_TEST_SECONDS} s.",
-                     "Run it again; if it hangs, try THESEUS_BROWSER_CHANNEL=chrome.")]
+                     "Run it again; if it hangs, try KNARR_BROWSER_CHANNEL=chrome.")]
     except Exception as exc:
         return [_explain_browser_failure(exc, channel)]
     finally:
@@ -544,7 +544,7 @@ def check_browser(env: Mapping[str, str],
     if server.writes:
         results.append(fail("The write block let a write through",
                             f"The test page's POST reached the local server: {server.writes}",
-                            "Don't use Theseus on a real site until this passes. Update Playwright and the browser, and run this again."))
+                            "Don't use Knarr on a real site until this passes. Update Playwright and the browser, and run this again."))
     elif summary["blocked_writes"] != 1:
         results.append(fail("The write block didn't see the test page's POST",
                             f"blocked_writes={summary['blocked_writes']}", "Update Playwright and the browser, and run this again."))
@@ -561,7 +561,7 @@ async def _server_tools() -> List[str]:
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
-    params = StdioServerParameters(command=sys.executable, args=["-m", "theseus.mcp"], env=dict(os.environ))
+    params = StdioServerParameters(command=sys.executable, args=["-m", "knarr.mcp"], env=dict(os.environ))
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as client:
             await client.initialize()
@@ -587,7 +587,7 @@ def check_server(list_tools: Optional[Callable[[], Any]] = None) -> List[Result]
 
 def _server_by_hand() -> str:
     """The command that starts the same server this check started: the Python running the doctor."""
-    return f"{sys.executable} -m theseus.mcp"
+    return f"{sys.executable} -m knarr.mcp"
 
 
 # -- running them -----------------------------------------------------------------------------------------
@@ -630,9 +630,9 @@ def render(sections: List[Tuple[str, List[Result]]]) -> str:
                 lines.append(f"        fix: {head}")
                 lines.extend(f"        {line}" for line in rest)
         lines.append("")
-    verdict = ("Everything Theseus needs works here." if not counts["fail"] and not counts["warn"] else
-               "Theseus can run here; read the warnings." if not counts["fail"] else
-               "Theseus can't run here yet: fix the FAIL lines above and run this again.")
+    verdict = ("Everything Knarr needs works here." if not counts["fail"] and not counts["warn"] else
+               "Knarr can run here; read the warnings." if not counts["fail"] else
+               "Knarr can't run here yet: fix the FAIL lines above and run this again.")
     lines.append(f"{counts['ok']} ok, {counts['warn']} warning(s), {counts['fail']} failure(s). {verdict}")
     return "\n".join(lines)
 

@@ -1,4 +1,4 @@
-"""Unit tests for theseus/explorer/profiles.py — the user's per-site settings."""
+"""Unit tests for knarr/explorer/profiles.py — the user's per-site settings."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from theseus.explorer.profiles import (
+from knarr.explorer.profiles import (
     MAX_PROFILE_BYTES,
     PROFILES_DIR_ENV,
     ProfileError,
@@ -19,7 +19,7 @@ from theseus.explorer.profiles import (
     problems_sentence,
     profiles_dir,
 )
-from theseus.explorer.write_block import (
+from knarr.explorer.write_block import (
     ALLOW_WRITES_ENV,
     BLOCK_WRITES_ENV,
     WRITE_ALLOW_ENV,
@@ -144,7 +144,7 @@ def test_a_profile_cant_take_a_default_forbidden_verb_away_because_it_has_no_suc
 
 
 def test_an_allow_pattern_error_names_the_profile_not_the_environment():
-    with pytest.raises(ValueError, match=r"^THESEUS_WRITE_ALLOW pattern"):
+    with pytest.raises(ValueError, match=r"^KNARR_WRITE_ALLOW pattern"):
         validate_allow_pattern("nope")
     with pytest.raises(ValueError, match=r"^allow pattern 'nope'"):
         validate_allow_pattern("nope", "allow")
@@ -164,7 +164,7 @@ def test_an_allow_pattern_must_write_the_scheme_and_host_out(pattern):
 
 @pytest.mark.parametrize("pattern", ["https://*/**", "https://*.example.com/x", "https://a.example.com:*/x"])
 def test_the_rule_is_the_profiles_the_environments_patterns_keep_their_wildcards(pattern):
-    validate_allow_pattern(pattern)  # THESEUS_WRITE_ALLOW is the user's own server setting, unchanged
+    validate_allow_pattern(pattern)  # KNARR_WRITE_ALLOW is the user's own server setting, unchanged
 
 
 @pytest.mark.parametrize("pattern", [
@@ -313,13 +313,13 @@ def test_the_directory_comes_from_the_environment(tmp_path, monkeypatch):
     assert profiles_dir() == d
     assert find_profile(SANDBOX).profile is not None
     monkeypatch.setenv(PROFILES_DIR_ENV, "  ")
-    assert profiles_dir() == Path.home() / ".theseus" / "sites"
+    assert profiles_dir() == Path.home() / ".knarr" / "sites"
 
 
 def test_the_problems_sentence_is_short():
     assert problems_sentence(()) == ""
     one = problems_sentence(("a.yaml: bad",))
-    assert one.startswith("Ignored site profile(s): a.yaml: bad.") and "/theseus:doctor" in one
+    assert one.startswith("Ignored site profile(s): a.yaml: bad.") and "/knarr:doctor" in one
     many = problems_sentence(tuple(f"{i}.yaml: bad" for i in range(7)))
     assert "0.yaml" in many and "2.yaml" in many and "3.yaml" not in many and "and 4 more" in many
 

@@ -20,8 +20,8 @@ from typing import Any, Dict, List
 
 import pytest
 
-from theseus.explorer.human_demo import DemoEvent, SelectorRung
-from theseus.explorer.learned_controls import (
+from knarr.explorer.human_demo import DemoEvent, SelectorRung
+from knarr.explorer.learned_controls import (
     LearnedControl,
     LearnedControlWriter,
     control_from_text,
@@ -456,7 +456,7 @@ def test_writer_cumulative_path_stays_inside_the_dir(tmp_path: Path):
 # ``question``.
 # ============================================================================
 
-from theseus.explorer.learned_controls import (  # noqa: E402
+from knarr.explorer.learned_controls import (  # noqa: E402
     MAX_INTENT_CHARS,
     shorten_intent,
 )

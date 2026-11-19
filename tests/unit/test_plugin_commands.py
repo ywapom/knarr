@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from theseus import doctor
+from knarr import doctor
 
 COMMANDS = Path(__file__).resolve().parents[2] / "plugin" / "commands"
 README = (Path(__file__).resolve().parents[2] / "README.md").read_text()
@@ -49,9 +49,9 @@ def test_the_install_command_follows_the_agreed_steps_and_limits():
     positions = [body.index(marker) for marker in
                  ("1. **uv.**", "2. **The package.**", "3. **A browser.**", "4. **Check.**", "5. **Finish.**")]
     assert positions == sorted(positions)
-    assert doctor.DOCTOR_COMMAND in body and "THESEUS_BROWSER_CHANNEL=chrome" in body
+    assert doctor.DOCTOR_COMMAND in body and "KNARR_BROWSER_CHANNEL=chrome" in body
     assert "Don't edit their settings yourself unless they ask" in body
-    assert "don't open any website" in body and "THESEUS_ALLOW_WRITES" in body  # named only to forbid it
+    assert "don't open any website" in body and "KNARR_ALLOW_WRITES" in body  # named only to forbid it
     assert "--refresh" in body and "$ARGUMENTS" in body
 
 
@@ -63,5 +63,5 @@ def test_the_doctor_command_runs_only_the_doctor():
 def test_the_plugin_starts_the_server_the_doctor_names():
     import json
 
-    config = json.loads((COMMANDS.parent / ".mcp.json").read_text())["mcpServers"]["theseus"]
+    config = json.loads((COMMANDS.parent / ".mcp.json").read_text())["mcpServers"]["knarr"]
     assert " ".join([config["command"], *config["args"]]) == doctor.SERVER_COMMAND

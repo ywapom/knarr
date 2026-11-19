@@ -56,7 +56,7 @@ def test_each_direct_dependency_is_locked_inside_its_range():
         assert minimum <= locked < ceiling, f"{name}=={pins[name]} is outside its range in pyproject.toml"
 
 
-def test_the_lock_holds_no_test_tools_and_not_theseus_itself():
+def test_the_lock_holds_no_test_tools_and_not_knarr_itself():
     pins = _lock()
-    for name in ("pytest", "pluggy", "iniconfig", "theseus-mcp"):
+    for name in ("pytest", "pluggy", "iniconfig", "knarr"):
         assert name not in pins, name

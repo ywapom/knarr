@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 
 def make_page(*, url="https://example.com/start", threads=None, click_goes_to=None, redirects=None):
-    """A page the explorer tools can drive through their ``_theseus_*`` hooks.
+    """A page the explorer tools can drive through their ``_knarr_*`` hooks.
 
     ``threads`` collects the thread id of every hook call when given.
     ``click_goes_to`` maps a click target to the URL the click navigates to.
@@ -19,10 +19,10 @@ def make_page(*, url="https://example.com/start", threads=None, click_goes_to=No
     page = MagicMock(name="page")
     page.url = url
     page.title.return_value = "Example"
-    page._theseus_visible_buttons = ["Place order"]
-    page._theseus_visible_input_labels = []
-    page._theseus_visible_headings = ["Order desk"]
-    page._theseus_modal_text = None
+    page._knarr_visible_buttons = ["Place order"]
+    page._knarr_visible_input_labels = []
+    page._knarr_visible_headings = ["Order desk"]
+    page._knarr_modal_text = None
     click_goes_to = dict(click_goes_to or {})
 
     def seen():
@@ -41,7 +41,7 @@ def make_page(*, url="https://example.com/start", threads=None, click_goes_to=No
 
     def click_index(index):
         seen()
-        return {"success": True, "selector": f'[data-theseus-index="{index}"]'}
+        return {"success": True, "selector": f'[data-knarr-index="{index}"]'}
 
     def assert_state(description):
         seen()
@@ -50,9 +50,9 @@ def make_page(*, url="https://example.com/start", threads=None, click_goes_to=No
 
     page.goto.side_effect = goto
     page.asserted = []
-    page._theseus_click = click
-    page._theseus_click_index = click_index
-    page._theseus_assert_state = assert_state
+    page._knarr_click = click
+    page._knarr_click_index = click_index
+    page._knarr_assert_state = assert_state
     return page
 
 

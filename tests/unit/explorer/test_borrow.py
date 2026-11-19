@@ -1,4 +1,4 @@
-"""Unit tests for theseus/explorer/borrow.py (no Chrome; DevTools calls faked)."""
+"""Unit tests for knarr/explorer/borrow.py (no Chrome; DevTools calls faked)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from theseus.explorer import borrow
+from knarr.explorer import borrow
 
 
 def _storage_reply(items):
@@ -184,7 +184,7 @@ def test_the_devtools_url_may_be_http_or_websocket(given, base):
 
 @pytest.mark.parametrize("bad", ["", "9222", "ftp://127.0.0.1:9222", "http://"])
 def test_a_devtools_url_that_is_not_http_or_websocket_is_rejected(bad):
-    with pytest.raises(borrow.BorrowError, match="THESEUS_CDP_URL"):
+    with pytest.raises(borrow.BorrowError, match="KNARR_CDP_URL"):
         borrow._http_base(bad)
 
 
@@ -442,7 +442,7 @@ def test_these_hosts_are_not(host):
     "http://[::2]:9222",
 ])
 def test_a_devtools_url_that_is_not_on_this_machine_is_refused(given):
-    with pytest.raises(borrow.BorrowError, match="THESEUS_CDP_URL must be on this machine"):
+    with pytest.raises(borrow.BorrowError, match="KNARR_CDP_URL must be on this machine"):
         borrow._http_base(given)
 
 

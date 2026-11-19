@@ -1,13 +1,13 @@
 """Observation of a human demonstration during an ``ask_human`` pause.
 
-When Theseus pauses to ask for help, the operator has two ways to answer:
+When Knarr pauses to ask for help, the operator has two ways to answer:
 type an explanation, or just *do the thing* in the live browser. This module
 reads back the second kind.
 
 How it works, and why this shape:
 
   1. Before blocking, ``install_recorder`` injects capture-phase ``click`` and
-     ``change`` listeners that push a descriptor onto ``window.__theseusHumanLog``.
+     ``change`` listeners that push a descriptor onto ``window.__knarrHumanLog``.
   2. Python blocks on ``input()``. Chromium is a separate OS process, so the page
      stays fully interactive while the operator works — this is the same property
      a hold-open browser session relies on.
@@ -116,7 +116,7 @@ def best_rung(ladder: Sequence[SelectorRung]) -> Optional[SelectorRung]:
 
 @dataclass(frozen=True)
 class DemoEvent:
-    """One interaction the operator performed while Theseus waited."""
+    """One interaction the operator performed while Knarr waited."""
 
     kind: str                                   # "click" | "change"
     tag: str = ""
@@ -185,7 +185,7 @@ class HumanDemo:
     def describe(self) -> str:
         """Render for the ``ask_human`` tool's return string.
 
-        This is the whole feedback channel — every Theseus tool returns
+        This is the whole feedback channel — every Knarr tool returns
         human-readable text that the runner hands back as the tool result, so
         the demonstration reaches Claude with no new plumbing.
         """
@@ -480,7 +480,7 @@ _RECORDER_INSTALL_JS = """
 %(helpers)s
   const MAX_EVENTS = %(max_events)d;
   const captureValues = !!(opts && opts.captureValues);
-  if (window.__theseusRecorder) {
+  if (window.__knarrRecorder) {
     return {installed: true, already: true, snapshot: snapshot()};
   }
   const log = [];
@@ -515,25 +515,25 @@ _RECORDER_INSTALL_JS = """
   const onChange = (ev) => { try { push('change', ev.target); } catch (e) {} };
   document.addEventListener('click', onClick, true);
   document.addEventListener('change', onChange, true);
-  window.__theseusRecorder = {log: log, onClick: onClick, onChange: onChange};
+  window.__knarrRecorder = {log: log, onClick: onClick, onChange: onChange};
   return {installed: true, already: false, snapshot: snapshot()};
 }
 """ % {"helpers": _JS_HELPERS, "max_events": MAX_EVENTS}
 
 
 # Collect: detach, hand back the log, and take the "after" snapshot. A missing
-# window.__theseusRecorder here means navigation wiped it — reported as
+# window.__knarrRecorder here means navigation wiped it — reported as
 # survived:false rather than an empty success.
 _RECORDER_COLLECT_JS = """
 () => {
 %(helpers)s
-  const rec = window.__theseusRecorder;
+  const rec = window.__knarrRecorder;
   if (!rec) return {survived: false, events: [], snapshot: snapshot()};
   try {
     document.removeEventListener('click', rec.onClick, true);
     document.removeEventListener('change', rec.onChange, true);
   } catch (e) { /* detaching a dead listener is harmless */ }
-  try { delete window.__theseusRecorder; } catch (e) { window.__theseusRecorder = null; }
+  try { delete window.__knarrRecorder; } catch (e) { window.__knarrRecorder = null; }
   return {survived: true, events: rec.log, snapshot: snapshot()};
 }
 """ % {"helpers": _JS_HELPERS}
@@ -566,10 +566,10 @@ def collect_demo(
     before: StateSnapshot,
 ) -> HumanDemo:
     """Read the event log back, detach the recorder, and diff page state."""
-    # Test seam, matching explorer_tools' ``_theseus_*`` fixture convention:
-    # a fake page can set ``_theseus_human_log`` to a list of event dicts and
+    # Test seam, matching explorer_tools' ``_knarr_*`` fixture convention:
+    # a fake page can set ``_knarr_human_log`` to a list of event dicts and
     # skip the JS entirely.
-    fixture_log = getattr(page, "_theseus_human_log", None)
+    fixture_log = getattr(page, "_knarr_human_log", None)
     if isinstance(fixture_log, (list, tuple)):
         after = _fallback_snapshot(page)
         return HumanDemo(
@@ -636,8 +636,8 @@ def _fallback_snapshot(page: Any) -> StateSnapshot:
         url = str(raw_url() if callable(raw_url) else raw_url or "")
     except Exception:
         url = ""
-    errors = getattr(page, "_theseus_field_errors", ())
-    menus = getattr(page, "_theseus_open_menus", ())
+    errors = getattr(page, "_knarr_field_errors", ())
+    menus = getattr(page, "_knarr_open_menus", ())
     return StateSnapshot(
         url=url,
         field_errors=_as_str_tuple(errors),

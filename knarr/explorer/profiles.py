@@ -1,7 +1,7 @@
 """Site profiles: the user's settings for one site, read when a session starts.
 
-A profile is a YAML file in ``~/.theseus/sites`` (``THESEUS_PROFILES_DIR``
-changes the directory). It belongs to the user, like the ``THESEUS_*``
+A profile is a YAML file in ``~/.knarr/sites`` (``KNARR_PROFILES_DIR``
+changes the directory). It belongs to the user, like the ``KNARR_*``
 settings, and the model has no way to name or pick one: the session finds the
 profile whose ``origins`` include the start URL's origin. Because it is read at
 ``session_start``, an edit applies to the next session with no server restart.
@@ -14,7 +14,7 @@ profile whose ``origins`` include the start URL's origin. Because it is read at
     forbidden_text: [Send Invoice]  # more verbs to refuse; the defaults stay
     caps: {max_turns: 60, max_wall_clock_sec: 1200}
 
-An ``allow`` entry is a URL pattern, the same grammar as ``THESEUS_WRITE_ALLOW``
+An ``allow`` entry is a URL pattern, the same grammar as ``KNARR_WRITE_ALLOW``
 (see ``write_block``), and matches any non-GET method to that URL. In a profile
 the scheme (http or https) and the host are written out, with no ``*`` in them:
 a pattern that matches every host would be ``writes: live`` without its
@@ -23,8 +23,8 @@ a pattern that matches every host would be ``writes: live`` without its
 What a profile can do is bounded. It can add allow patterns, switch writes to
 ``live`` (with ``authorized_by``), add forbidden verbs and set the limits. It
 can't remove a default forbidden verb, and it can't overrule the environment:
-``THESEUS_BLOCK_WRITES`` still blocks writes, and ``THESEUS_MAX_TURNS`` and
-``THESEUS_MAX_WALL_CLOCK_SEC`` still win over its limits.
+``KNARR_BLOCK_WRITES`` still blocks writes, and ``KNARR_MAX_TURNS`` and
+``KNARR_MAX_WALL_CLOCK_SEC`` still win over its limits.
 
 A profile that can't be used is ignored, never half-applied, which is the
 stricter outcome, and the session says so in its start message: a file with an
@@ -35,7 +35,7 @@ same origin.
 This protects against the model's tool arguments, not against its file tools:
 a client that can write to the profiles directory can widen its own policy. The
 README says to keep an ask or deny rule on that directory in Claude Code's
-permissions, and ``/theseus:doctor`` checks for one.
+permissions, and ``/knarr:doctor`` checks for one.
 """
 
 from __future__ import annotations
@@ -50,10 +50,10 @@ from urllib.parse import urlsplit
 
 import yaml
 
-from theseus.explorer.origin import normalize_origin
-from theseus.explorer.write_block import validate_allow_pattern
+from knarr.explorer.origin import normalize_origin
+from knarr.explorer.write_block import validate_allow_pattern
 
-PROFILES_DIR_ENV = "THESEUS_PROFILES_DIR"
+PROFILES_DIR_ENV = "KNARR_PROFILES_DIR"
 PROFILE_SUFFIXES = (".yaml", ".yml")
 
 MAX_PROFILE_BYTES = 64 * 1024
@@ -144,7 +144,7 @@ class ProfileLookup:
 def profiles_dir(environ: Optional[Mapping[str, str]] = None) -> Path:
     environ = os.environ if environ is None else environ
     raw = (environ.get(PROFILES_DIR_ENV) or "").strip()
-    return Path(raw).expanduser() if raw else Path.home() / ".theseus" / "sites"
+    return Path(raw).expanduser() if raw else Path.home() / ".knarr" / "sites"
 
 
 def _shown(value: Any, limit: int = 60) -> str:
@@ -401,4 +401,4 @@ def problems_sentence(problems: Tuple[str, ...]) -> str:
         return ""
     shown = "; ".join(problems[:MAX_PROBLEMS_SHOWN])
     more = f"; and {len(problems) - MAX_PROBLEMS_SHOWN} more" if len(problems) > MAX_PROBLEMS_SHOWN else ""
-    return f"Ignored site profile(s): {shown}{more}. Run /theseus:doctor for details."
+    return f"Ignored site profile(s): {shown}{more}. Run /knarr:doctor for details."

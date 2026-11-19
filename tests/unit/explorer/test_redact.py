@@ -1,4 +1,4 @@
-"""Unit tests for theseus/explorer/redact.py — credentials in URLs stay out of the files a run leaves."""
+"""Unit tests for knarr/explorer/redact.py — credentials in URLs stay out of the files a run leaves."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from theseus.explorer.redact import MAX_STRING_CHARS, REDACTED, redact, redact_url, redact_urls_in_text
+from knarr.explorer.redact import MAX_STRING_CHARS, REDACTED, redact, redact_url, redact_urls_in_text
 
 STAGING_URL = (
     "https://staging.example.com/projects/10000/items?kind=WEEKLY"

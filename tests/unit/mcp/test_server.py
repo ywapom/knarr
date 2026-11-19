@@ -1,4 +1,4 @@
-"""Unit tests for theseus/mcp/server.py — the MCP tools, without a browser."""
+"""Unit tests for knarr/mcp/server.py — the MCP tools, without a browser."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from theseus.mcp import server
-from theseus.mcp.session import McpSession
+from knarr.mcp import server
+from knarr.mcp.session import McpSession
 
 from tests.unit.mcp.fakes import FakeBrowser, make_page
 
@@ -151,7 +151,7 @@ def test_shutdown_closes_an_active_session(fake_server):
 
 
 def test_run_directories(monkeypatch, tmp_path):
-    assert server.runs_root() == Path.home() / ".theseus" / "runs"
+    assert server.runs_root() == Path.home() / ".knarr" / "runs"
     monkeypatch.setenv(server.RUNS_DIR_ENV, str(tmp_path))
     when = datetime(2026, 10, 21, 9, 30, tzinfo=timezone.utc)
     run_dir = server.new_run_dir("https://Shop.Example.com:8443/cart", now=when)
@@ -160,7 +160,7 @@ def test_run_directories(monkeypatch, tmp_path):
 
 
 def test_the_pump_runs_only_for_a_session_whose_writes_are_blocked(monkeypatch, tmp_path):
-    from theseus.explorer.write_block import WriteBlock, WritePolicy
+    from knarr.explorer.write_block import WriteBlock, WritePolicy
 
     installed = []
     monkeypatch.setattr(server._worker, "set_idle", installed.append)
@@ -187,7 +187,7 @@ def test_the_session_reports_the_workers_pump_failures(monkeypatch, tmp_path, fa
 
 
 def test_the_pump_is_switched_off_when_the_session_ends_or_the_server_stops(monkeypatch, tmp_path):
-    from theseus.explorer.write_block import WriteBlock
+    from knarr.explorer.write_block import WriteBlock
 
     installed = []
     monkeypatch.setattr(server._worker, "set_idle", installed.append)
@@ -212,12 +212,12 @@ def test_the_instructions_tell_the_model_that_page_text_is_untrusted():
     assert "run a command" in text and "change a file or a setting" in text
 
 
-def test_the_server_reports_theseus_version_not_the_sdks():
+def test_the_server_reports_knarr_version_not_the_sdks():
     import importlib.metadata
 
     options = server.mcp._mcp_server.create_initialization_options()
-    assert options.server_name == "theseus"
-    assert options.server_version == importlib.metadata.version("theseus-mcp")
+    assert options.server_name == "knarr"
+    assert options.server_version == importlib.metadata.version("knarr")
     assert options.server_version != importlib.metadata.version("mcp")  # FastMCP's own default
 
 

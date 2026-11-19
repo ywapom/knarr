@@ -1,4 +1,4 @@
-"""Per-run cap enforcement for Theseus.
+"""Per-run cap enforcement for Knarr.
 
 Four caps gate every exploration run, each chosen to fail closed
 rather than burn budget invisibly:
@@ -7,7 +7,7 @@ rather than burn budget invisibly:
   - ``max_tokens``        running token estimate exceeds N
   - ``max_wall_clock_sec`` watchdog kills the run after N seconds
   - ``max_rss_mb``        sampled RSS crosses N (memory-footprint guard
-                           — Theseus is the run mode most likely to leak
+                           — Knarr is the run mode most likely to leak
                            memory because Chromium screenshots accumulate)
 
 Two design choices worth knowing:
@@ -21,7 +21,7 @@ Two design choices worth knowing:
 
 2. **Defaults are intentionally generous.** Lenient defaults avoid
    spurious mid-run aborts on slow or busy sites. Tighten them
-   (``THESEUS_MAX_TURNS``, ``THESEUS_MAX_WALL_CLOCK_SEC``, a site
+   (``KNARR_MAX_TURNS``, ``KNARR_MAX_WALL_CLOCK_SEC``, a site
    profile's ``caps``) once you know the real distribution.
 
 3. **Interactive runs get their own, much larger caps — and give up
@@ -44,7 +44,7 @@ Two design choices worth knowing:
    accounting later, kept honest so the decision can be revisited
    with data instead of a guess.
 
-The tracker is stateful and not thread-safe — Theseus runs are
+The tracker is stateful and not thread-safe — Knarr runs are
 single-process, single-thread, so the simplicity is correct here.
 """
 

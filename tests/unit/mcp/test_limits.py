@@ -1,10 +1,10 @@
-"""Unit tests for theseus/mcp/limits.py — what a tool call may carry."""
+"""Unit tests for knarr/mcp/limits.py — what a tool call may carry."""
 
 from __future__ import annotations
 
 import pytest
 
-from theseus.mcp.limits import (
+from knarr.mcp.limits import (
     MAX_CRITERION_CHARS,
     MAX_FILL_VALUE_CHARS,
     MAX_GOAL_CHARS,

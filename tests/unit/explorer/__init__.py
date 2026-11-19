@@ -1,4 +1,4 @@
-"""Test package for Theseus explorer (theseus/explorer/).
+"""Test package for Knarr explorer (knarr/explorer/).
 
 All tests here run without a real site and without Claude: deterministic,
 mockable, and laptop-fast.

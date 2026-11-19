@@ -16,17 +16,17 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 ALLOWED_THIRD_PARTY = {
-    "mcp",           # MCP server (theseus.mcp)
+    "mcp",           # MCP server (knarr.mcp)
     "playwright",
     "pytest",
     "websockets",    # login borrowing over DevTools, and the write-block integration test's server
     "yaml",
 }
-ALLOWED_FIRST_PARTY = {"theseus", "tests"}
+ALLOWED_FIRST_PARTY = {"knarr", "tests"}
 
 
 def _python_files():
-    for root in ("theseus", "tests"):
+    for root in ("knarr", "tests"):
         yield from sorted((REPO_ROOT / root).rglob("*.py"))
 
 
